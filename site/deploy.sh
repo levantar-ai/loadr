@@ -21,6 +21,10 @@ mkdir -p "$DIST/assets" "$DIST/docs"
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$DIST/"
 cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/favicon.svg" "$DIST/assets/"
 cp -r "$ROOT/docs/book/." "$DIST/docs/"
+if [ -d "$ROOT/site/videos/out" ]; then
+  mkdir -p "$DIST/videos"
+  cp "$ROOT/site/videos/out/"*.mp4 "$ROOT/site/videos/out/"*.jpg "$DIST/videos/" 2>/dev/null || true
+fi
 
 echo "==> syncing to s3://$BUCKET"
 # Long-lived cache for static assets…

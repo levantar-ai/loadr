@@ -418,16 +418,15 @@ impl loadr_plugin_webui::UiBackend for SingleRunBackend {
             loadr_core::RunStatus::Stopping => ("stopping", None),
             loadr_core::RunStatus::Finished { passed } => ("finished", Some(passed)),
         };
+        let summary = self.summary.lock();
         vec![loadr_plugin_webui::RunInfo {
             run_id: self.handle.run_id.to_string(),
             name: Some(self.name.clone()),
             state: state.to_string(),
             passed,
             started_ms: self.started_ms,
-            ended_ms: self.summary.lock().as_ref().map(|s| s.ended_ms),
-            scenarios: self
-                .summary
-                .lock()
+            ended_ms: summary.as_ref().map(|s| s.ended_ms),
+            scenarios: summary
                 .as_ref()
                 .map(|s| s.scenarios.clone())
                 .unwrap_or_default(),

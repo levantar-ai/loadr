@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "loadr.fullname" . }}-agent
+  labels:
+    {{- include "loadr.labels" . | nindent 4 }}
+    app.kubernetes.io/component: agent
+spec:
+  replicas: {{ .Values.agents.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "loadr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "loadr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: agent
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: agent
+          image: {{ include "loadr.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - agent
+            - --join={{ include "loadr.fullname" . }}-controller:{{ .Values.controller.grpcPort }}
+            - --name=$(POD_NAME)
+            {{- range $k, $v := .Values.agents.labels }}
+            - --label={{ $k }}={{ $v }}
+            {{- end }}
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          resources:
+            {{- toYaml .Values.agents.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: work, mountPath: /tmp }
+      volumes:
+        - name: work
+          emptyDir: {}
+      {{- with .Values.agents.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agents.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.agents.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

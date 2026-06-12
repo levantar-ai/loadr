@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadr-agent
+  namespace: loadr
+  labels: { app.kubernetes.io/name: loadr, app.kubernetes.io/component: agent }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app.kubernetes.io/name: loadr, app.kubernetes.io/component: agent }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: loadr, app.kubernetes.io/component: agent }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: agent
+          image: ghcr.io/reaandrew/loadr:latest
+          args:
+            - agent
+            - --join=loadr-controller:7625
+            - --name=$(POD_NAME)
+          env:
+            - name: POD_NAME
+              valueFrom: { fieldRef: { fieldPath: metadata.name } }
+          resources:
+            requests: { cpu: "1", memory: 512Mi }
+            limits: { cpu: "4", memory: 2Gi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: work, mountPath: /tmp }
+      volumes:
+        - name: work
+          emptyDir: {}

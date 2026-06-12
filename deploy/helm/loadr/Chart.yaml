@@ -1,0 +1,10 @@
+apiVersion: v2
+name: loadr
+description: loadr distributed load testing platform — controller, agent fleet and management UI
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://loadr.io
+sources:
+  - https://github.com/reaandrew/loadr.io
+keywords: [load-testing, performance, k6, jmeter]

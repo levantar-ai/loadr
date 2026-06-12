@@ -1,0 +1,98 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "loadr.fullname" . }}-controller
+  labels:
+    {{- include "loadr.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "loadr.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "loadr.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: controller
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: controller
+          image: {{ include "loadr.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - controller
+            - --bind=0.0.0.0:{{ .Values.controller.grpcPort }}
+            - --ui-bind=0.0.0.0:{{ .Values.controller.uiPort }}
+            - --ui-user=$(LOADR_UI_USER)
+            - --ui-password=$(LOADR_UI_PASSWORD)
+            - --prometheus-listen=0.0.0.0:{{ .Values.controller.metricsPort }}
+          env:
+            - name: LOADR_UI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loadr.uiSecretName" . }}
+                  key: username
+            - name: LOADR_UI_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "loadr.uiSecretName" . }}
+                  key: password
+          ports:
+            - { name: grpc, containerPort: {{ .Values.controller.grpcPort }} }
+            - { name: http-ui, containerPort: {{ .Values.controller.uiPort }} }
+            - { name: metrics, containerPort: {{ .Values.controller.metricsPort }} }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http-ui }
+            initialDelaySeconds: 2
+          resources:
+            {{- toYaml .Values.controller.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "loadr.fullname" . }}-controller
+  labels:
+    {{- include "loadr.labels" . | nindent 4 }}
+    app.kubernetes.io/component: controller
+spec:
+  type: {{ .Values.controller.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "loadr.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: controller
+  ports:
+    - { name: grpc, port: {{ .Values.controller.grpcPort }}, targetPort: grpc }
+    - { name: http-ui, port: {{ .Values.controller.uiPort }}, targetPort: http-ui }
+    - { name: metrics, port: {{ .Values.controller.metricsPort }}, targetPort: metrics }
+{{- if not .Values.controller.ui.existingSecret }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "loadr.fullname" . }}-ui-auth
+  labels:
+    {{- include "loadr.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  username: {{ .Values.controller.ui.username | quote }}
+  password: {{ .Values.controller.ui.password | quote }}
+{{- end }}

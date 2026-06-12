@@ -1,0 +1,44 @@
+# gRPC load: compile .proto files in-process (no protoc needed) or use
+# server reflection, then call unary and streaming methods dynamically.
+name: grpc
+description: unary + server-streaming gRPC calls
+
+scenarios:
+  unary:
+    executor: constant-arrival-rate
+    rate: 200
+    duration: 3m
+    pre_allocated_vus: 30
+    max_vus: 100
+    flow:
+      - request:
+          name: say hello
+          url: grpc://greeter.example.com:50051
+          grpc:
+            proto_files: [ protos/helloworld.proto ]
+            service: helloworld.Greeter
+            method: SayHello
+            message: { name: "vu-${vu}" }
+            metadata: { x-api-key: "${env.GRPC_API_KEY}" }
+          assert:
+            - { type: status, equals: 0 }       # gRPC OK
+            - { type: jsonpath, expression: "$.message", exists: true }
+
+  streaming_via_reflection:
+    executor: constant-vus
+    vus: 5
+    duration: 3m
+    flow:
+      - request:
+          name: stream replies
+          url: grpc://greeter.example.com:50051
+          grpc:
+            reflection: true                    # no proto files needed
+            service: helloworld.Greeter
+            method: LotsOfReplies
+            message: { name: "stream-${vu}" }
+          checks:
+            - { type: status, equals: 0 }
+
+thresholds:
+  grpc_req_duration: [ "p(95)<150" ]

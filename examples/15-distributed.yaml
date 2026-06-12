@@ -1,0 +1,38 @@
+# Distributed run: submit this to a controller and the load is partitioned
+# across every connected agent (VUs split, arrival rates divided, percentiles
+# merged centrally from HDR histograms — never averaged).
+#
+#   loadr controller --bind 0.0.0.0:7625 &
+#   loadr agent --join controller-host:7625 --name agent-1 &
+#   loadr run --controller controller-host:7625 examples/15-distributed.yaml
+name: distributed
+description: 600 req/s split across the agent fleet
+
+defaults:
+  http:
+    base_url: https://api.example.com
+
+scenarios:
+  fleet_load:
+    executor: constant-arrival-rate
+    rate: 600                 # total across ALL agents
+    duration: 15m
+    pre_allocated_vus: 300
+    max_vus: 900
+    flow:
+      - request:
+          name: search
+          url: "/search?q=stress"
+          checks: [ { type: status, equals: 200 } ]
+
+  # Scale this one live from the web UI's run page or the controller API.
+  manual_dial:
+    executor: externally-controlled
+    max_vus: 500
+    duration: 15m
+    flow:
+      - request: { name: home, url: / }
+
+thresholds:
+  http_req_duration: [ "p(95)<400", "p(99)<900" ]
+  http_req_failed: [ "rate<0.01" ]

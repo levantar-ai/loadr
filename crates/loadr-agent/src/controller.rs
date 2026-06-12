@@ -1,0 +1,920 @@
+//! The coordination controller: accepts agent sessions, assigns partitioned
+//! runs behind a synchronized start barrier, merges metric deltas into one
+//! central aggregator and evaluates thresholds over the whole fleet.
+
+use std::collections::{HashMap, HashSet};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use futures::Stream;
+use loadr_core::thresholds::{compile_thresholds, evaluate_all, CompiledThreshold};
+use loadr_core::{Aggregator, MetricsDelta, Snapshot, Summary, ThresholdStatus};
+use parking_lot::Mutex;
+use tokio::sync::{mpsc, watch};
+use tokio_stream::wrappers::{ReceiverStream, TcpListenerStream};
+use tokio_util::sync::CancellationToken;
+use tonic::transport::{Certificate, Identity, Server, ServerTlsConfig};
+use tonic::{Request, Response, Status, Streaming};
+
+use crate::error::AgentError;
+use crate::pb;
+use crate::pb::agent_message::Msg as AgentMsg;
+use crate::pb::controller_message::Msg as CtrlMsg;
+use crate::pb::coordination_server::{Coordination, CoordinationServer};
+use crate::{now_unix_ms, PROTOCOL_VERSION};
+
+/// TLS settings for the controller listener.
+#[derive(Debug, Clone)]
+pub struct ControllerTls {
+    pub cert_pem: PathBuf,
+    pub key_pem: PathBuf,
+    /// When set, agents must present a client certificate signed by this CA (mTLS).
+    pub client_ca_pem: Option<PathBuf>,
+}
+
+/// Controller configuration.
+#[derive(Debug, Clone)]
+pub struct ControllerConfig {
+    pub bind: SocketAddr,
+    pub tls: Option<ControllerTls>,
+    /// An agent with no traffic for this long is considered lost (default 6s).
+    pub agent_liveness: Duration,
+}
+
+impl Default for ControllerConfig {
+    fn default() -> Self {
+        ControllerConfig {
+            bind: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
+            tls: None,
+            agent_liveness: Duration::from_secs(6),
+        }
+    }
+}
+
+/// What to do with an in-flight run when one of its agents is lost.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum OnAgentLoss {
+    /// Keep going with the remaining agents (default).
+    #[default]
+    Continue,
+    /// Stop the run on the remaining agents and mark it failed.
+    Abort,
+}
+
+/// Options for [`ControllerHandle::submit`].
+#[derive(Clone)]
+pub struct SubmitOptions {
+    /// Environment override (`env.<name>` block in the plan).
+    pub env: Option<String>,
+    /// Run name override (defaults to the plan name).
+    pub name: Option<String>,
+    /// Data files shipped to every agent, as (relative path, content).
+    pub files: Vec<(String, Vec<u8>)>,
+    /// Only assign to agents whose labels contain all of these.
+    pub agent_filter: Option<HashMap<String, String>>,
+    pub on_agent_loss: OnAgentLoss,
+    /// Synchronized start barrier delay (default 2s).
+    pub start_barrier: Duration,
+}
+
+impl Default for SubmitOptions {
+    fn default() -> Self {
+        SubmitOptions {
+            env: None,
+            name: None,
+            files: Vec::new(),
+            agent_filter: None,
+            on_agent_loss: OnAgentLoss::default(),
+            start_barrier: Duration::from_secs(2),
+        }
+    }
+}
+
+/// Live agent info for CLIs and web UIs.
+#[derive(Debug, Clone)]
+pub struct AgentInfo {
+    pub id: String,
+    pub name: String,
+    pub labels: HashMap<String, String>,
+    pub cores: u32,
+    pub connected_secs: u64,
+    /// Milliseconds since the last heartbeat/traffic.
+    pub last_heartbeat_ms: u64,
+    pub active_vus: u64,
+    pub healthy: bool,
+}
+
+/// Run listing entry.
+#[derive(Debug, Clone)]
+pub struct RunSummaryInfo {
+    pub run_id: String,
+    pub name: Option<String>,
+    /// pending | running | finished | aborted | failed
+    pub state: String,
+    pub started_ms: u64,
+    pub agents: Vec<String>,
+}
+
+/// Split `total` VUs across `agents`, remainder to the lowest indices —
+/// matching `loadr_core::partition_spec` share math.
+pub fn scale_shares(total: u64, agents: u64) -> Vec<u64> {
+    (0..agents)
+        .map(|i| total / agents + u64::from(i < total % agents))
+        .collect()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum RunState {
+    Pending,
+    Running,
+    Finished,
+    Aborted,
+    Failed,
+}
+
+impl RunState {
+    fn is_terminal(self) -> bool {
+        matches!(
+            self,
+            RunState::Finished | RunState::Aborted | RunState::Failed
+        )
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            RunState::Pending => "pending",
+            RunState::Running => "running",
+            RunState::Finished => "finished",
+            RunState::Aborted => "aborted",
+            RunState::Failed => "failed",
+        }
+    }
+}
+
+type AgentSender = mpsc::Sender<Result<pb::ControllerMessage, Status>>;
+
+struct AgentEntry {
+    name: String,
+    labels: HashMap<String, String>,
+    cores: u32,
+    connected_at: Instant,
+    last_heartbeat: Instant,
+    active_vus: u64,
+    connected: bool,
+    session: u64,
+    sender: AgentSender,
+}
+
+struct ControllerRun {
+    run_id: String,
+    name: Option<String>,
+    #[allow(dead_code)]
+    plan_yaml: String,
+    scenarios: Vec<String>,
+    thresholds: Vec<CompiledThreshold>,
+    on_agent_loss: OnAgentLoss,
+    /// Agent ids in partition order.
+    assigned: Vec<String>,
+    state: Mutex<RunState>,
+    started_ms: u64,
+    finished_ms: Mutex<Option<u64>>,
+    agg: Mutex<Aggregator>,
+    /// agent_id → terminal event kind (finished/aborted/failed).
+    done: Mutex<HashMap<String, String>>,
+    lost: Mutex<HashSet<String>>,
+    /// Per-agent summaries as reported.
+    summaries: Mutex<Vec<Summary>>,
+    threshold_statuses: Mutex<Vec<ThresholdStatus>>,
+    abort_reason: Mutex<Option<String>>,
+    snapshot_tx: watch::Sender<Arc<Snapshot>>,
+    snapshot_rx: watch::Receiver<Arc<Snapshot>>,
+    last_recompute: Mutex<Instant>,
+}
+
+struct Inner {
+    controller_id: String,
+    liveness: Duration,
+    agents: Mutex<HashMap<String, AgentEntry>>,
+    runs: Mutex<HashMap<String, Arc<ControllerRun>>>,
+    session_counter: AtomicU64,
+}
+
+impl Inner {
+    fn register_agent(&self, reg: &pb::Register, sender: AgentSender, session: u64) {
+        self.agents.lock().insert(
+            reg.agent_id.clone(),
+            AgentEntry {
+                name: reg.agent_name.clone(),
+                labels: reg.labels.clone(),
+                cores: reg.cpu_cores,
+                connected_at: Instant::now(),
+                last_heartbeat: Instant::now(),
+                active_vus: 0,
+                connected: true,
+                session,
+                sender,
+            },
+        );
+        if !reg.resume_run_id.is_empty() {
+            tracing::info!(
+                agent = %reg.agent_id,
+                run_id = %reg.resume_run_id,
+                "agent resumed with an in-flight run"
+            );
+            // The agent came back within the grace window: let its run count again.
+            if let Some(run) = self.runs.lock().get(&reg.resume_run_id) {
+                run.lost.lock().remove(&reg.agent_id);
+            }
+        }
+    }
+
+    fn mark_disconnected(&self, agent_id: &str, session: u64) {
+        let mut agents = self.agents.lock();
+        if let Some(entry) = agents.get_mut(agent_id) {
+            if entry.session == session {
+                entry.connected = false;
+            }
+        }
+    }
+
+    fn handle_agent_message(&self, agent_id: &str, msg: pb::AgentMessage) {
+        // Any traffic refreshes liveness.
+        if let Some(entry) = self.agents.lock().get_mut(agent_id) {
+            entry.last_heartbeat = Instant::now();
+        }
+        match msg.msg {
+            Some(AgentMsg::Heartbeat(hb)) => {
+                if let Some(entry) = self.agents.lock().get_mut(agent_id) {
+                    entry.active_vus = hb.active_vus;
+                }
+            }
+            Some(AgentMsg::Metrics(batch)) => {
+                let run = self.runs.lock().get(&batch.run_id).cloned();
+                let Some(run) = run else { return };
+                match serde_json::from_slice::<MetricsDelta>(&batch.delta_json) {
+                    Ok(delta) => {
+                        run.agg.lock().merge_delta(&delta);
+                        self.maybe_recompute(&run);
+                    }
+                    Err(e) => {
+                        tracing::warn!(run_id = %batch.run_id, error = %e, "bad metrics delta");
+                    }
+                }
+            }
+            Some(AgentMsg::Event(ev)) => self.handle_run_event(agent_id, ev),
+            Some(AgentMsg::Register(_)) | None => {}
+        }
+    }
+
+    fn handle_run_event(&self, agent_id: &str, ev: pb::RunEvent) {
+        let run = self.runs.lock().get(&ev.run_id).cloned();
+        let Some(run) = run else {
+            tracing::debug!(run_id = %ev.run_id, "event for unknown run ignored");
+            return;
+        };
+        match ev.kind.as_str() {
+            "started" => {
+                tracing::info!(run_id = %ev.run_id, agent = %agent_id, "agent started run");
+            }
+            "finished" | "aborted" | "failed" => {
+                if !ev.summary_json.is_empty() {
+                    if let Ok(summary) = serde_json::from_slice::<Summary>(&ev.summary_json) {
+                        run.summaries.lock().push(summary);
+                    }
+                }
+                if (ev.kind == "aborted" || ev.kind == "failed") && !ev.detail.is_empty() {
+                    let mut reason = run.abort_reason.lock();
+                    if reason.is_none() {
+                        *reason = Some(ev.detail.clone());
+                    }
+                }
+                if ev.kind == "failed" {
+                    tracing::warn!(
+                        run_id = %ev.run_id,
+                        agent = %agent_id,
+                        detail = %ev.detail,
+                        "agent run failed"
+                    );
+                }
+                run.done.lock().insert(agent_id.to_string(), ev.kind);
+                self.check_completion(&run);
+            }
+            other => tracing::debug!(kind = other, "unknown run event kind"),
+        }
+    }
+
+    /// Finish the run once every assigned agent has either reported a
+    /// terminal event or been declared lost.
+    fn check_completion(&self, run: &Arc<ControllerRun>) {
+        if run.state.lock().is_terminal() {
+            return;
+        }
+        let (all_done, any_failed, any_aborted) = {
+            let done = run.done.lock();
+            let lost = run.lost.lock();
+            let all_done = run
+                .assigned
+                .iter()
+                .all(|a| done.contains_key(a) || lost.contains(a));
+            let any_failed = done.values().any(|k| k == "failed") || done.is_empty();
+            let any_aborted = done.values().any(|k| k == "aborted");
+            (all_done, any_failed, any_aborted)
+        };
+        if !all_done {
+            return;
+        }
+        let final_state = if any_failed {
+            RunState::Failed
+        } else if any_aborted {
+            RunState::Aborted
+        } else {
+            RunState::Finished
+        };
+        self.finalize_run(run, final_state);
+    }
+
+    fn finalize_run(&self, run: &Arc<ControllerRun>, final_state: RunState) {
+        let became_terminal = {
+            let mut state = run.state.lock();
+            if state.is_terminal() {
+                false
+            } else {
+                *state = final_state;
+                true
+            }
+        };
+        if !became_terminal {
+            return;
+        }
+        *run.finished_ms.lock() = Some(now_unix_ms());
+        let mut agg = run.agg.lock();
+        let (statuses, _) = evaluate_all(&run.thresholds, &agg, agg.elapsed());
+        let snapshot = Arc::new(agg.snapshot());
+        drop(agg);
+        *run.threshold_statuses.lock() = statuses;
+        let _ = run.snapshot_tx.send(snapshot);
+        tracing::info!(run_id = %run.run_id, state = final_state.as_str(), "run completed");
+    }
+
+    /// Recompute the watch snapshot from the central aggregator, throttled to
+    /// at most one recompute per 250ms.
+    fn maybe_recompute(&self, run: &Arc<ControllerRun>) {
+        {
+            let mut last = run.last_recompute.lock();
+            if last.elapsed() < Duration::from_millis(250) {
+                return;
+            }
+            *last = Instant::now();
+        }
+        let snapshot = Arc::new(run.agg.lock().snapshot());
+        let _ = run.snapshot_tx.send(snapshot);
+    }
+
+    /// Senders for the run's assigned agents that are still connected, in
+    /// partition order.
+    fn run_senders(&self, run: &ControllerRun) -> Vec<(String, AgentSender)> {
+        let agents = self.agents.lock();
+        run.assigned
+            .iter()
+            .filter_map(|id| {
+                agents
+                    .get(id)
+                    .filter(|e| e.connected)
+                    .map(|e| (id.clone(), e.sender.clone()))
+            })
+            .collect()
+    }
+
+    /// Liveness sweep: declare agents lost and apply each run's loss policy.
+    async fn sweep(&self) {
+        let lost_ids: Vec<String> = self
+            .agents
+            .lock()
+            .iter()
+            .filter(|(_, e)| e.last_heartbeat.elapsed() > self.liveness)
+            .map(|(id, _)| id.clone())
+            .collect();
+        if lost_ids.is_empty() {
+            return;
+        }
+        let runs: Vec<Arc<ControllerRun>> = self.runs.lock().values().cloned().collect();
+        for run in runs {
+            if run.state.lock().is_terminal() {
+                continue;
+            }
+            let newly: Vec<String> = lost_ids
+                .iter()
+                .filter(|id| {
+                    run.assigned.contains(id)
+                        && !run.lost.lock().contains(*id)
+                        && !run.done.lock().contains_key(*id)
+                })
+                .cloned()
+                .collect();
+            if newly.is_empty() {
+                continue;
+            }
+            for id in &newly {
+                tracing::warn!(run_id = %run.run_id, agent = %id, "agent lost during run");
+                run.lost.lock().insert(id.clone());
+            }
+            match run.on_agent_loss {
+                OnAgentLoss::Continue => self.check_completion(&run),
+                OnAgentLoss::Abort => {
+                    {
+                        let mut reason = run.abort_reason.lock();
+                        if reason.is_none() {
+                            *reason = Some(format!("agent(s) lost: {}", newly.join(", ")));
+                        }
+                    }
+                    let targets = self.run_senders(&run);
+                    for (_, sender) in targets {
+                        let _ = sender
+                            .send(Ok(control_message(&run.run_id, "stop", "", 0)))
+                            .await;
+                    }
+                    self.finalize_run(&run, RunState::Failed);
+                }
+            }
+        }
+    }
+}
+
+fn control_message(
+    run_id: &str,
+    action: &str,
+    scenario: &str,
+    value: u64,
+) -> pb::ControllerMessage {
+    pb::ControllerMessage {
+        msg: Some(CtrlMsg::Control(pb::Control {
+            run_id: run_id.to_string(),
+            action: action.to_string(),
+            scenario: scenario.to_string(),
+            value,
+        })),
+    }
+}
+
+struct CoordinationService {
+    inner: Arc<Inner>,
+}
+
+type SessionStream = Pin<Box<dyn Stream<Item = Result<pb::ControllerMessage, Status>> + Send>>;
+
+#[tonic::async_trait]
+impl Coordination for CoordinationService {
+    type SessionStream = SessionStream;
+
+    async fn session(
+        &self,
+        request: Request<Streaming<pb::AgentMessage>>,
+    ) -> Result<Response<Self::SessionStream>, Status> {
+        let mut inbound = request.into_inner();
+        let first = inbound
+            .message()
+            .await?
+            .ok_or_else(|| Status::invalid_argument("stream closed before Register"))?;
+        let reg = match first.msg {
+            Some(AgentMsg::Register(r)) => r,
+            _ => return Err(Status::invalid_argument("first message must be Register")),
+        };
+        if reg.protocol_version != PROTOCOL_VERSION {
+            return Err(Status::failed_precondition(format!(
+                "protocol version mismatch: controller speaks {PROTOCOL_VERSION}, agent speaks {}",
+                reg.protocol_version
+            )));
+        }
+        if reg.agent_id.is_empty() {
+            return Err(Status::invalid_argument("agent_id is required"));
+        }
+
+        let (tx, rx) = mpsc::channel::<Result<pb::ControllerMessage, Status>>(128);
+        let ack = pb::ControllerMessage {
+            msg: Some(CtrlMsg::Registered(pb::Registered {
+                controller_id: self.inner.controller_id.clone(),
+                protocol_version: PROTOCOL_VERSION,
+                message: format!("welcome {}", reg.agent_name),
+            })),
+        };
+        tx.send(Ok(ack))
+            .await
+            .map_err(|_| Status::unavailable("session closed"))?;
+
+        let session = self.inner.session_counter.fetch_add(1, Ordering::Relaxed) + 1;
+        self.inner.register_agent(&reg, tx, session);
+        tracing::info!(agent = %reg.agent_id, name = %reg.agent_name, "agent registered");
+
+        let inner = self.inner.clone();
+        let agent_id = reg.agent_id;
+        tokio::spawn(async move {
+            loop {
+                match inbound.message().await {
+                    Ok(Some(msg)) => inner.handle_agent_message(&agent_id, msg),
+                    Ok(None) => break,
+                    Err(status) => {
+                        tracing::debug!(agent = %agent_id, error = %status, "agent stream ended");
+                        break;
+                    }
+                }
+            }
+            inner.mark_disconnected(&agent_id, session);
+            tracing::info!(agent = %agent_id, "agent disconnected");
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
+    }
+}
+
+/// The coordination controller. [`Controller::start`] binds the listener and
+/// returns a [`ControllerHandle`] for submitting and managing runs.
+pub struct Controller;
+
+impl Controller {
+    pub async fn start(config: ControllerConfig) -> Result<ControllerHandle, AgentError> {
+        let listener = tokio::net::TcpListener::bind(config.bind)
+            .await
+            .map_err(|e| AgentError::Transport(format!("bind {}: {e}", config.bind)))?;
+        let addr = listener
+            .local_addr()
+            .map_err(|e| AgentError::Transport(e.to_string()))?;
+        let inner = Arc::new(Inner {
+            controller_id: uuid::Uuid::new_v4().to_string(),
+            liveness: config.agent_liveness,
+            agents: Mutex::new(HashMap::new()),
+            runs: Mutex::new(HashMap::new()),
+            session_counter: AtomicU64::new(0),
+        });
+        let shutdown = CancellationToken::new();
+
+        let mut server = Server::builder();
+        if let Some(tls) = &config.tls {
+            server = server
+                .tls_config(server_tls(tls)?)
+                .map_err(|e| AgentError::Tls(e.to_string()))?;
+        }
+        let router = server.add_service(CoordinationServer::new(CoordinationService {
+            inner: inner.clone(),
+        }));
+        let serve_token = shutdown.clone();
+        tokio::spawn(async move {
+            let result = router
+                .serve_with_incoming_shutdown(
+                    TcpListenerStream::new(listener),
+                    serve_token.cancelled(),
+                )
+                .await;
+            if let Err(e) = result {
+                tracing::error!(error = %e, "coordination server failed");
+            }
+        });
+        tokio::spawn(sweeper(inner.clone(), shutdown.clone()));
+        tracing::info!(%addr, "controller listening");
+        Ok(ControllerHandle {
+            inner,
+            addr,
+            shutdown,
+        })
+    }
+}
+
+fn server_tls(tls: &ControllerTls) -> Result<ServerTlsConfig, AgentError> {
+    let read = |path: &std::path::Path| -> Result<Vec<u8>, AgentError> {
+        std::fs::read(path).map_err(|e| AgentError::Io {
+            path: path.display().to_string(),
+            source: e,
+        })
+    };
+    let mut cfg = ServerTlsConfig::new().identity(Identity::from_pem(
+        read(&tls.cert_pem)?,
+        read(&tls.key_pem)?,
+    ));
+    if let Some(ca) = &tls.client_ca_pem {
+        cfg = cfg
+            .client_ca_root(Certificate::from_pem(read(ca)?))
+            .client_auth_optional(false);
+    }
+    Ok(cfg)
+}
+
+async fn sweeper(inner: Arc<Inner>, shutdown: CancellationToken) {
+    let tick = (inner.liveness / 4).max(Duration::from_millis(200));
+    let mut ticker = tokio::time::interval(tick);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            _ = ticker.tick() => {}
+            _ = shutdown.cancelled() => return,
+        }
+        inner.sweep().await;
+    }
+}
+
+/// Per-run task: evaluate thresholds centrally once per second and keep the
+/// snapshot watch fresh even when no batches arrive.
+fn spawn_run_ticker(inner: Arc<Inner>, run: Arc<ControllerRun>, shutdown: CancellationToken) {
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(1));
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                _ = ticker.tick() => {}
+                _ = shutdown.cancelled() => return,
+            }
+            if run.state.lock().is_terminal() {
+                return;
+            }
+            {
+                let agg = run.agg.lock();
+                let (statuses, _) = evaluate_all(&run.thresholds, &agg, agg.elapsed());
+                drop(agg);
+                *run.threshold_statuses.lock() = statuses;
+            }
+            inner.maybe_recompute(&run);
+        }
+    });
+}
+
+/// Cloneable handle to a running controller, used by the CLI and web UI.
+#[derive(Clone)]
+pub struct ControllerHandle {
+    inner: Arc<Inner>,
+    addr: SocketAddr,
+    shutdown: CancellationToken,
+}
+
+impl ControllerHandle {
+    /// The bound listener address (useful with port 0).
+    pub fn addr(&self) -> SocketAddr {
+        self.addr
+    }
+
+    /// Validate a plan, partition it across all matching connected agents and
+    /// start it behind a synchronized barrier. Returns the run id.
+    pub async fn submit(
+        &self,
+        plan_yaml: String,
+        opts: SubmitOptions,
+    ) -> Result<String, AgentError> {
+        let load_opts = loadr_config::LoadOptions {
+            env: opts.env.clone(),
+            check_files: false,
+            deny_errors: true,
+        };
+        let loaded = loadr_config::load_str(&plan_yaml, &load_opts)
+            .map_err(|e| AgentError::Config(e.to_string()))?;
+        for (path, _) in &opts.files {
+            crate::agent::validate_data_file_path(path)?;
+        }
+        let thresholds = compile_thresholds(&loaded.plan.thresholds).map_err(AgentError::Config)?;
+        let scenarios: Vec<String> = loaded.plan.scenarios.keys().cloned().collect();
+        let name = opts.name.clone().or_else(|| loaded.plan.name.clone());
+
+        // Pick agents: connected, fresh, matching the label filter.
+        let mut selected: Vec<(String, AgentSender)> = {
+            let agents = self.inner.agents.lock();
+            agents
+                .iter()
+                .filter(|(_, e)| e.connected && e.last_heartbeat.elapsed() <= self.inner.liveness)
+                .filter(|(_, e)| match &opts.agent_filter {
+                    Some(filter) => filter.iter().all(|(k, v)| e.labels.get(k) == Some(v)),
+                    None => true,
+                })
+                .map(|(id, e)| (id.clone(), e.sender.clone()))
+                .collect()
+        };
+        if selected.is_empty() {
+            return Err(AgentError::NoAgents);
+        }
+        selected.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let run_id = uuid::Uuid::new_v4().to_string();
+        let (snapshot_tx, snapshot_rx) = watch::channel(Arc::new(Snapshot::default()));
+        let run = Arc::new(ControllerRun {
+            run_id: run_id.clone(),
+            name,
+            plan_yaml: plan_yaml.clone(),
+            scenarios,
+            thresholds,
+            on_agent_loss: opts.on_agent_loss,
+            assigned: selected.iter().map(|(id, _)| id.clone()).collect(),
+            state: Mutex::new(RunState::Pending),
+            started_ms: now_unix_ms(),
+            finished_ms: Mutex::new(None),
+            agg: Mutex::new(Aggregator::new()),
+            done: Mutex::new(HashMap::new()),
+            lost: Mutex::new(HashSet::new()),
+            summaries: Mutex::new(Vec::new()),
+            threshold_statuses: Mutex::new(Vec::new()),
+            abort_reason: Mutex::new(None),
+            snapshot_tx,
+            snapshot_rx,
+            last_recompute: Mutex::new(Instant::now()),
+        });
+        self.inner.runs.lock().insert(run_id.clone(), run.clone());
+
+        let count = selected.len() as u64;
+        let files: Vec<pb::DataFile> = opts
+            .files
+            .iter()
+            .map(|(path, content)| pb::DataFile {
+                relative_path: path.clone(),
+                content: content.clone(),
+            })
+            .collect();
+        for (index, (agent_id, sender)) in selected.iter().enumerate() {
+            let assignment = pb::ControllerMessage {
+                msg: Some(CtrlMsg::Assignment(pb::Assignment {
+                    run_id: run_id.clone(),
+                    plan_yaml: plan_yaml.clone().into_bytes(),
+                    partition_index: index as u64,
+                    partition_count: count,
+                    files: files.clone(),
+                    env: opts.env.clone().unwrap_or_default(),
+                })),
+            };
+            if sender.send(Ok(assignment)).await.is_err() {
+                tracing::warn!(agent = %agent_id, run_id = %run_id, "assignment send failed");
+            }
+        }
+
+        // Synchronized start barrier.
+        let start_unix_ms = now_unix_ms() as i64 + opts.start_barrier.as_millis() as i64;
+        for (agent_id, sender) in &selected {
+            let start = pb::ControllerMessage {
+                msg: Some(CtrlMsg::Start(pb::Start {
+                    run_id: run_id.clone(),
+                    start_unix_ms,
+                })),
+            };
+            if sender.send(Ok(start)).await.is_err() {
+                tracing::warn!(agent = %agent_id, run_id = %run_id, "start send failed");
+            }
+        }
+        *run.state.lock() = RunState::Running;
+        spawn_run_ticker(self.inner.clone(), run, self.shutdown.clone());
+        Ok(run_id)
+    }
+
+    /// Graceful stop on every assigned agent.
+    pub async fn stop_run(&self, run_id: &str) -> Result<(), AgentError> {
+        self.control(run_id, "stop", "", None).await
+    }
+
+    /// Immediate abort on every assigned agent.
+    pub async fn kill_run(&self, run_id: &str) -> Result<(), AgentError> {
+        self.control(run_id, "kill", "", None).await
+    }
+
+    /// Pause or resume on every assigned agent.
+    pub async fn pause_run(&self, run_id: &str, paused: bool) -> Result<(), AgentError> {
+        let action = if paused { "pause" } else { "resume" };
+        self.control(run_id, action, "", None).await
+    }
+
+    /// Scale an externally-controlled scenario to `vus_total` across the
+    /// run's surviving agents (remainder to the lowest partition indices).
+    pub async fn scale(
+        &self,
+        run_id: &str,
+        scenario: &str,
+        vus_total: u64,
+    ) -> Result<(), AgentError> {
+        self.control(run_id, "scale", scenario, Some(vus_total))
+            .await
+    }
+
+    async fn control(
+        &self,
+        run_id: &str,
+        action: &str,
+        scenario: &str,
+        vus_total: Option<u64>,
+    ) -> Result<(), AgentError> {
+        let run = self
+            .inner
+            .runs
+            .lock()
+            .get(run_id)
+            .cloned()
+            .ok_or_else(|| AgentError::UnknownRun(run_id.to_string()))?;
+        let targets = self.inner.run_senders(&run);
+        if targets.is_empty() {
+            return Err(AgentError::NoAgents);
+        }
+        let shares = vus_total.map(|total| scale_shares(total, targets.len() as u64));
+        for (index, (_, sender)) in targets.iter().enumerate() {
+            let value = shares
+                .as_ref()
+                .and_then(|s| s.get(index))
+                .copied()
+                .unwrap_or(0);
+            let _ = sender
+                .send(Ok(control_message(run_id, action, scenario, value)))
+                .await;
+        }
+        Ok(())
+    }
+
+    /// Known agents (including recently disconnected ones).
+    pub fn agents(&self) -> Vec<AgentInfo> {
+        let liveness = self.inner.liveness;
+        self.inner
+            .agents
+            .lock()
+            .iter()
+            .map(|(id, e)| AgentInfo {
+                id: id.clone(),
+                name: e.name.clone(),
+                labels: e.labels.clone(),
+                cores: e.cores,
+                connected_secs: e.connected_at.elapsed().as_secs(),
+                last_heartbeat_ms: e.last_heartbeat.elapsed().as_millis() as u64,
+                active_vus: e.active_vus,
+                healthy: e.connected && e.last_heartbeat.elapsed() <= liveness,
+            })
+            .collect()
+    }
+
+    /// All known runs, oldest first.
+    pub fn runs(&self) -> Vec<RunSummaryInfo> {
+        let mut out: Vec<RunSummaryInfo> = self
+            .inner
+            .runs
+            .lock()
+            .values()
+            .map(|r| RunSummaryInfo {
+                run_id: r.run_id.clone(),
+                name: r.name.clone(),
+                state: r.state.lock().as_str().to_string(),
+                started_ms: r.started_ms,
+                agents: r.assigned.clone(),
+            })
+            .collect();
+        out.sort_by(|a, b| {
+            a.started_ms
+                .cmp(&b.started_ms)
+                .then_with(|| a.run_id.cmp(&b.run_id))
+        });
+        out
+    }
+
+    /// Live merged snapshots for a run (recomputed centrally, ≥250ms apart).
+    pub fn watch_run(&self, run_id: &str) -> Option<watch::Receiver<Arc<Snapshot>>> {
+        self.inner
+            .runs
+            .lock()
+            .get(run_id)
+            .map(|r| r.snapshot_rx.clone())
+    }
+
+    /// Centrally evaluated threshold statuses for a run.
+    pub fn run_thresholds(&self, run_id: &str) -> Vec<ThresholdStatus> {
+        self.inner
+            .runs
+            .lock()
+            .get(run_id)
+            .map(|r| r.threshold_statuses.lock().clone())
+            .unwrap_or_default()
+    }
+
+    /// Per-agent summaries reported so far for a run.
+    pub fn run_agent_summaries(&self, run_id: &str) -> Vec<Summary> {
+        self.inner
+            .runs
+            .lock()
+            .get(run_id)
+            .map(|r| r.summaries.lock().clone())
+            .unwrap_or_default()
+    }
+
+    /// The merged end-of-run summary, built from the central aggregator once
+    /// the run reached a terminal state.
+    pub fn run_summary(&self, run_id: &str) -> Option<Summary> {
+        let run = self.inner.runs.lock().get(run_id).cloned()?;
+        if !run.state.lock().is_terminal() {
+            return None;
+        }
+        let thresholds = run.threshold_statuses.lock().clone();
+        let aborted = run.abort_reason.lock().clone();
+        let mut agg = run.agg.lock();
+        Some(Summary::build(
+            run.name.clone(),
+            run.run_id.clone(),
+            run.started_ms,
+            run.scenarios.clone(),
+            &mut agg,
+            thresholds,
+            aborted,
+        ))
+    }
+
+    /// Stop the listener and all background tasks.
+    pub fn shutdown(&self) {
+        self.shutdown.cancel();
+    }
+}

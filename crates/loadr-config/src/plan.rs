@@ -578,6 +578,19 @@ pub enum Step {
     /// Pick one branch at random — weighted, uniform or round-robin
     /// (Locust weighted tasks; Gatling `randomSwitch`/`uniformRandomSwitch`/`roundRobinSwitch`).
     Random(RandomStep),
+    /// Iterate nested steps over a list (JMeter ForEach, Gatling `foreach`).
+    Foreach(ForeachStep),
+    /// Branch on a value matching named cases (JMeter Switch, Gatling `doSwitch`).
+    Switch(SwitchStep),
+    /// Repeat nested steps for a fixed duration (Gatling `during`).
+    During(DuringStep),
+    /// Retry nested steps until they succeed or an attempt budget runs out (Gatling `tryMax`).
+    Retry(RetryStep),
+    /// Run nested steps concurrently within one iteration (k6 `http.batch`).
+    Parallel(ParallelStep),
+    /// Synchronization barrier: hold VUs until `users` have arrived
+    /// (JMeter Synchronizing Timer, Gatling `rendezVous`).
+    Rendezvous(RendezvousStep),
 }
 
 const STEP_KINDS: &[&str] = &[
@@ -589,6 +602,12 @@ const STEP_KINDS: &[&str] = &[
     "while",
     "if",
     "random",
+    "foreach",
+    "switch",
+    "during",
+    "retry",
+    "parallel",
+    "rendezvous",
 ];
 
 impl Serialize for Step {
@@ -604,6 +623,12 @@ impl Serialize for Step {
             Step::While(w) => map.serialize_entry("while", w)?,
             Step::If(i) => map.serialize_entry("if", i)?,
             Step::Random(r) => map.serialize_entry("random", r)?,
+            Step::Foreach(f) => map.serialize_entry("foreach", f)?,
+            Step::Switch(s) => map.serialize_entry("switch", s)?,
+            Step::During(d) => map.serialize_entry("during", d)?,
+            Step::Retry(r) => map.serialize_entry("retry", r)?,
+            Step::Parallel(p) => map.serialize_entry("parallel", p)?,
+            Step::Rendezvous(r) => map.serialize_entry("rendezvous", r)?,
         }
         map.end()
     }
@@ -641,6 +666,12 @@ impl<'de> Deserialize<'de> for Step {
                     "while" => Step::While(map.next_value()?),
                     "if" => Step::If(map.next_value()?),
                     "random" => Step::Random(map.next_value()?),
+                    "foreach" => Step::Foreach(map.next_value()?),
+                    "switch" => Step::Switch(map.next_value()?),
+                    "during" => Step::During(map.next_value()?),
+                    "retry" => Step::Retry(map.next_value()?),
+                    "parallel" => Step::Parallel(map.next_value()?),
+                    "rendezvous" => Step::Rendezvous(map.next_value()?),
                     other => {
                         let mut msg = format!(
                             "unknown step type `{other}`, expected one of {}",
@@ -688,6 +719,12 @@ impl JsonSchema for Step {
         let while_ = generator.subschema_for::<WhileStep>();
         let if_ = generator.subschema_for::<IfStep>();
         let random = generator.subschema_for::<RandomStep>();
+        let foreach = generator.subschema_for::<ForeachStep>();
+        let switch = generator.subschema_for::<SwitchStep>();
+        let during = generator.subschema_for::<DuringStep>();
+        let retry = generator.subschema_for::<RetryStep>();
+        let parallel = generator.subschema_for::<ParallelStep>();
+        let rendezvous = generator.subschema_for::<RendezvousStep>();
         schemars::json_schema!({
             "title": "Step",
             "description": "One flow step: a single-key mapping",
@@ -699,10 +736,100 @@ impl JsonSchema for Step {
                 { "type": "object", "properties": { "repeat": repeat }, "required": ["repeat"], "additionalProperties": false },
                 { "type": "object", "properties": { "while": while_ }, "required": ["while"], "additionalProperties": false },
                 { "type": "object", "properties": { "if": if_ }, "required": ["if"], "additionalProperties": false },
-                { "type": "object", "properties": { "random": random }, "required": ["random"], "additionalProperties": false }
+                { "type": "object", "properties": { "random": random }, "required": ["random"], "additionalProperties": false },
+                { "type": "object", "properties": { "foreach": foreach }, "required": ["foreach"], "additionalProperties": false },
+                { "type": "object", "properties": { "switch": switch }, "required": ["switch"], "additionalProperties": false },
+                { "type": "object", "properties": { "during": during }, "required": ["during"], "additionalProperties": false },
+                { "type": "object", "properties": { "retry": retry }, "required": ["retry"], "additionalProperties": false },
+                { "type": "object", "properties": { "parallel": parallel }, "required": ["parallel"], "additionalProperties": false },
+                { "type": "object", "properties": { "rendezvous": rendezvous }, "required": ["rendezvous"], "additionalProperties": false }
             ]
         })
     }
+}
+
+/// Iterate nested steps over a list, binding each element to a variable.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ForeachStep {
+    /// What to iterate. A `${...}` template resolving to a JSON array, an
+    /// inline array, or a `js:` expression returning an array.
+    pub items: serde_json::Value,
+    /// Variable name bound to the current element each pass (default `item`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub var: Option<String>,
+    /// Variable name bound to the 0-based index each pass (default `index`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub index: Option<String>,
+    /// Steps run for each element.
+    pub steps: Vec<Step>,
+}
+
+/// Branch on a value matching named cases.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SwitchStep {
+    /// The value to switch on (`${...}` template, rendered then matched).
+    pub value: String,
+    /// Named branches; the case whose key equals the rendered value runs.
+    pub cases: IndexMap<String, Vec<Step>>,
+    /// Steps run when no case matches.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub default: Vec<Step>,
+}
+
+/// Repeat nested steps for a fixed duration.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DuringStep {
+    /// How long to keep looping.
+    pub duration: Dur,
+    /// The steps to repeat.
+    pub steps: Vec<Step>,
+    /// 0-based loop counter variable (default `index`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter: Option<String>,
+}
+
+/// Retry nested steps until they succeed (no failed request) or the attempt
+/// budget runs out.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RetryStep {
+    /// Maximum attempts (default 3).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub times: Option<u64>,
+    /// Optional JS success condition; when set, the block stops as soon as it is
+    /// truthy. When unset, an attempt succeeds if it produced no failed request.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<String>,
+    /// Pause between attempts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub backoff: Option<Dur>,
+    /// The steps to attempt.
+    pub steps: Vec<Step>,
+}
+
+/// Run nested steps concurrently within one iteration.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ParallelStep {
+    /// Branches to run at the same time. Each branch opens its own connection
+    /// (no shared pool); extracted variables and cookies merge back afterwards.
+    pub branches: Vec<Vec<Step>>,
+}
+
+/// A synchronization barrier.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RendezvousStep {
+    /// Barrier name (VUs sharing a name rendezvous together).
+    pub name: String,
+    /// Release once this many VUs are waiting.
+    pub users: u64,
+    /// Give up waiting after this long (default `30s`) to avoid deadlock.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<Dur>,
 }
 
 /// Repeat nested steps a fixed number of times.

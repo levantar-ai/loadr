@@ -284,10 +284,25 @@ fn step_uses_js(step: &Step) -> bool {
     match step {
         Step::Js(_) => true,
         Step::While(_) | Step::If(_) => true, // conditions are JS expressions
+        Step::Retry(r) => r.until.is_some() || r.steps.iter().any(step_uses_js),
         Step::Group(g) => g.steps.iter().any(step_uses_js),
         Step::Repeat(r) => r.steps.iter().any(step_uses_js),
         Step::Random(r) => r.choices.iter().any(|c| c.steps.iter().any(step_uses_js)),
-        _ => false,
+        Step::Foreach(f) => {
+            f.items
+                .as_str()
+                .map(|s| s.contains("${js:"))
+                .unwrap_or(false)
+                || f.steps.iter().any(step_uses_js)
+        }
+        Step::Switch(s) => {
+            s.value.contains("${js:")
+                || s.cases.values().any(|steps| steps.iter().any(step_uses_js))
+                || s.default.iter().any(step_uses_js)
+        }
+        Step::During(d) => d.steps.iter().any(step_uses_js),
+        Step::Parallel(p) => p.branches.iter().any(|b| b.iter().any(step_uses_js)),
+        Step::Request(_) | Step::ThinkTime(_) | Step::Rendezvous(_) => false,
     }
 }
 
@@ -403,6 +418,77 @@ impl Ctx<'_> {
                             "steps",
                             &choice.steps,
                             declared,
+                        );
+                    }
+                }
+                Step::Foreach(f) => {
+                    if let Some(name) = &f.var {
+                        declared.insert(name.clone());
+                    } else {
+                        declared.insert("item".to_string());
+                    }
+                    declared.insert(f.index.clone().unwrap_or_else(|| "index".to_string()));
+                    self.check_steps(&format!("{path}.foreach"), "steps", &f.steps, declared);
+                }
+                Step::Switch(s) => {
+                    if let Err(e) = Template::parse(&s.value) {
+                        self.error(format!("{path}.switch.value"), e.to_string());
+                    }
+                    if s.cases.is_empty() {
+                        self.error(
+                            format!("{path}.switch.cases"),
+                            "`switch` needs at least one case",
+                        );
+                    }
+                    for (key, steps) in &s.cases {
+                        self.check_steps(
+                            &format!("{path}.switch.cases.{key}"),
+                            "steps",
+                            steps,
+                            declared,
+                        );
+                    }
+                    self.check_steps(&format!("{path}.switch"), "default", &s.default, declared);
+                }
+                Step::During(d) => {
+                    if d.duration.is_zero() {
+                        self.warning(
+                            format!("{path}.during.duration"),
+                            "`during` duration is zero",
+                        );
+                    }
+                    self.check_steps(&format!("{path}.during"), "steps", &d.steps, declared);
+                }
+                Step::Retry(r) => {
+                    if r.times == Some(0) {
+                        self.warning(
+                            format!("{path}.retry.times"),
+                            "`retry` allows zero attempts",
+                        );
+                    }
+                    self.check_steps(&format!("{path}.retry"), "steps", &r.steps, declared);
+                }
+                Step::Parallel(p) => {
+                    if p.branches.is_empty() {
+                        self.error(
+                            format!("{path}.parallel.branches"),
+                            "`parallel` needs at least one branch",
+                        );
+                    }
+                    for (bi, branch) in p.branches.iter().enumerate() {
+                        self.check_steps(
+                            &format!("{path}.parallel.branches[{bi}]"),
+                            "",
+                            branch,
+                            declared,
+                        );
+                    }
+                }
+                Step::Rendezvous(r) => {
+                    if r.users == 0 {
+                        self.error(
+                            format!("{path}.rendezvous.users"),
+                            "`rendezvous` needs `users` >= 1",
                         );
                     }
                 }

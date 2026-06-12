@@ -46,6 +46,8 @@ pub struct ScenarioProgram {
     pub pacing: Option<f64>,
     /// Global request-rate ceiling (Gatling throttle), shared across all VUs.
     pub throttle: Option<Arc<Throttle>>,
+    /// Named rendezvous barriers, created lazily and shared across VUs.
+    pub barriers: parking_lot::Mutex<std::collections::HashMap<String, Arc<tokio::sync::Barrier>>>,
     /// scenario + global tags.
     pub tags: Arc<Tags>,
     pub http: Arc<HttpDefaults>,
@@ -123,6 +125,36 @@ pub enum CompiledStep {
         /// per-iteration fallback — actual round-robin state lives on the VU).
         round_robin: std::sync::atomic::AtomicU64,
     },
+    Foreach {
+        items: serde_json::Value,
+        var: String,
+        index: String,
+        steps: Vec<CompiledStep>,
+    },
+    Switch {
+        value: Template,
+        cases: Vec<(String, Vec<CompiledStep>)>,
+        default: Vec<CompiledStep>,
+    },
+    During {
+        duration: Duration,
+        counter: String,
+        steps: Vec<CompiledStep>,
+    },
+    Retry {
+        times: u64,
+        until: Option<String>,
+        backoff: Option<Duration>,
+        steps: Vec<CompiledStep>,
+    },
+    Parallel {
+        branches: Vec<Vec<CompiledStep>>,
+    },
+    Rendezvous {
+        name: String,
+        users: u64,
+        timeout: Duration,
+    },
 }
 
 pub struct CompiledChoice {
@@ -197,6 +229,7 @@ impl ScenarioProgram {
             throttle: scenario
                 .throttle
                 .map(|t| Arc::new(Throttle::new(t.requests_per_second))),
+            barriers: parking_lot::Mutex::new(std::collections::HashMap::new()),
             tags: Arc::new(tags),
             http: Arc::new(plan.defaults.http.clone()),
             cookies_auto: plan.defaults.http.cookies,
@@ -259,6 +292,47 @@ fn compile_steps(
                         })
                         .collect::<Result<Vec<_>, EngineError>>()?,
                     round_robin: std::sync::atomic::AtomicU64::new(0),
+                },
+                Step::Foreach(f) => CompiledStep::Foreach {
+                    items: f.items.clone(),
+                    var: f.var.clone().unwrap_or_else(|| "item".to_string()),
+                    index: f.index.clone().unwrap_or_else(|| "index".to_string()),
+                    steps: compile_steps(&f.steps, base_dir)?,
+                },
+                Step::Switch(s) => CompiledStep::Switch {
+                    value: parse_template(&s.value, "switch value")?,
+                    cases: s
+                        .cases
+                        .iter()
+                        .map(|(k, steps)| Ok((k.clone(), compile_steps(steps, base_dir)?)))
+                        .collect::<Result<Vec<_>, EngineError>>()?,
+                    default: compile_steps(&s.default, base_dir)?,
+                },
+                Step::During(d) => CompiledStep::During {
+                    duration: d.duration.as_duration(),
+                    counter: d.counter.clone().unwrap_or_else(|| "index".to_string()),
+                    steps: compile_steps(&d.steps, base_dir)?,
+                },
+                Step::Retry(r) => CompiledStep::Retry {
+                    times: r.times.unwrap_or(3),
+                    until: r.until.clone(),
+                    backoff: r.backoff.map(|d| d.as_duration()),
+                    steps: compile_steps(&r.steps, base_dir)?,
+                },
+                Step::Parallel(p) => CompiledStep::Parallel {
+                    branches: p
+                        .branches
+                        .iter()
+                        .map(|b| compile_steps(b, base_dir))
+                        .collect::<Result<Vec<_>, EngineError>>()?,
+                },
+                Step::Rendezvous(r) => CompiledStep::Rendezvous {
+                    name: r.name.clone(),
+                    users: r.users,
+                    timeout: r
+                        .timeout
+                        .map(|d| d.as_duration())
+                        .unwrap_or(Duration::from_secs(30)),
                 },
             })
         })
@@ -584,10 +658,211 @@ impl FlowRunner {
                             return outcome;
                         }
                     }
+                    CompiledStep::Foreach {
+                        items,
+                        var,
+                        index,
+                        steps,
+                    } => {
+                        let list = self.resolve_items(items, vu, script);
+                        for (i, element) in list.into_iter().enumerate() {
+                            vu.vars.insert(var.clone(), element);
+                            vu.vars.insert(index.clone(), serde_json::json!(i));
+                            let outcome = self.run_steps(steps, vu, script).await;
+                            if outcome != IterationOutcome::Completed {
+                                return outcome;
+                            }
+                        }
+                    }
+                    CompiledStep::Switch {
+                        value,
+                        cases,
+                        default,
+                    } => {
+                        let key = render_template(self, value, vu, script).unwrap_or_default();
+                        let branch = cases
+                            .iter()
+                            .find(|(case, _)| *case == key)
+                            .map(|(_, steps)| steps)
+                            .unwrap_or(default);
+                        let outcome = self.run_steps(branch, vu, script).await;
+                        if outcome != IterationOutcome::Completed {
+                            return outcome;
+                        }
+                    }
+                    CompiledStep::During {
+                        duration,
+                        counter,
+                        steps,
+                    } => {
+                        let deadline = Instant::now() + *duration;
+                        let mut i = 0u64;
+                        while Instant::now() < deadline {
+                            vu.vars.insert(counter.clone(), serde_json::json!(i));
+                            let outcome = self.run_steps(steps, vu, script).await;
+                            if outcome != IterationOutcome::Completed {
+                                return outcome;
+                            }
+                            i += 1;
+                        }
+                    }
+                    CompiledStep::Retry {
+                        times,
+                        until,
+                        backoff,
+                        steps,
+                    } => {
+                        for attempt in 0..(*times).max(1) {
+                            vu.vars
+                                .insert("attempt".to_string(), serde_json::json!(attempt));
+                            vu.last_request_failed = false;
+                            let outcome = self.run_steps(steps, vu, script).await;
+                            if outcome != IterationOutcome::Completed {
+                                return outcome;
+                            }
+                            let ok = match until {
+                                Some(expr) => self.eval_condition_bool(expr, vu, script),
+                                None => !vu.last_request_failed,
+                            };
+                            if ok {
+                                break;
+                            }
+                            if attempt + 1 < (*times).max(1) {
+                                if let Some(b) = backoff {
+                                    tokio::time::sleep(*b).await;
+                                }
+                            }
+                        }
+                    }
+                    CompiledStep::Parallel { branches } => {
+                        let outcome = self.run_parallel(branches, vu, script).await;
+                        if outcome != IterationOutcome::Completed {
+                            return outcome;
+                        }
+                    }
+                    CompiledStep::Rendezvous {
+                        name,
+                        users,
+                        timeout,
+                    } => {
+                        let barrier = {
+                            let mut map = self.program.barriers.lock();
+                            map.entry(name.clone())
+                                .or_insert_with(|| {
+                                    Arc::new(tokio::sync::Barrier::new((*users).max(1) as usize))
+                                })
+                                .clone()
+                        };
+                        if tokio::time::timeout(*timeout, barrier.wait())
+                            .await
+                            .is_err()
+                        {
+                            tracing::warn!(
+                                rendezvous = %name,
+                                "rendezvous timed out waiting for {users} VUs; continuing"
+                            );
+                        }
+                    }
                 }
             }
             IterationOutcome::Completed
         })
+    }
+
+    /// Resolve a `foreach` items spec to a list of JSON values.
+    fn resolve_items(
+        &self,
+        items: &serde_json::Value,
+        vu: &mut VuContext,
+        script: &mut Option<Box<dyn VuScript>>,
+    ) -> Vec<serde_json::Value> {
+        match items {
+            serde_json::Value::Array(a) => a.clone(),
+            serde_json::Value::String(s) => {
+                // Render the template (handles ${...} and ${js: ...}), then parse JSON.
+                match render_str(self, s, vu, script) {
+                    Ok(rendered) => match serde_json::from_str::<serde_json::Value>(&rendered) {
+                        Ok(serde_json::Value::Array(a)) => a,
+                        Ok(other) => vec![other],
+                        Err(_) => {
+                            tracing::warn!(items = %s, "foreach items did not resolve to a JSON array");
+                            Vec::new()
+                        }
+                    },
+                    Err(e) => {
+                        tracing::warn!(error = %e, "foreach items failed to render");
+                        Vec::new()
+                    }
+                }
+            }
+            other => vec![other.clone()],
+        }
+    }
+
+    /// Run branches concurrently within one iteration (k6 `http.batch`).
+    /// Each branch gets its own child context (fresh connection pool, copied
+    /// cookies and vars); extracted variables merge back afterwards.
+    async fn run_parallel(
+        &self,
+        branches: &[Vec<CompiledStep>],
+        vu: &mut VuContext,
+        _script: &mut Option<Box<dyn VuScript>>,
+    ) -> IterationOutcome {
+        let mut children: Vec<VuContext> = (0..branches.len())
+            .map(|i| self.child_context(vu, i as u64))
+            .collect();
+        // No JS in parallel branches: each branch is requests-only.
+        let mut scripts: Vec<Option<Box<dyn VuScript>>> = branches.iter().map(|_| None).collect();
+
+        let futures: Vec<_> = branches
+            .iter()
+            .zip(children.iter_mut())
+            .zip(scripts.iter_mut())
+            .map(|((branch, child), scr)| self.run_steps(branch, child, scr))
+            .collect();
+        let outcomes = futures::future::join_all(futures).await;
+
+        // Merge child state back into the parent.
+        let mut any_failed = false;
+        for child in &children {
+            for (k, v) in &child.vars {
+                vu.vars.insert(k.clone(), v.clone());
+            }
+            if child.last_request_failed {
+                any_failed = true;
+            }
+        }
+        vu.last_request_failed = any_failed;
+
+        // Propagate the strongest non-Completed outcome (abort > stop).
+        for o in outcomes {
+            match o {
+                IterationOutcome::AbortTest(r) => return IterationOutcome::AbortTest(r),
+                IterationOutcome::AbortScenario => return IterationOutcome::AbortScenario,
+                _ => {}
+            }
+        }
+        IterationOutcome::Completed
+    }
+
+    /// Build a child context for a parallel branch.
+    fn child_context(&self, parent: &VuContext, branch: u64) -> VuContext {
+        let mut child = VuContext::new(
+            parent.vu_id,
+            parent.scenario.clone(),
+            parent.base_tags.clone(),
+            parent.metrics.clone(),
+            parent.run.clone(),
+            parent.cookies.auto,
+        );
+        child.iteration = parent.iteration;
+        child.groups = parent.groups.clone();
+        child.vars = parent.vars.clone();
+        child.cookies = parent.cookies.clone();
+        child.rng = rand::SeedableRng::seed_from_u64(
+            parent.vu_id ^ parent.iteration.wrapping_mul(0x9E37) ^ branch.wrapping_mul(0xC2B2),
+        );
+        child
     }
 
     /// Evaluate a JS condition expression to a boolean (false on error / no engine).
@@ -785,6 +1060,8 @@ impl FlowRunner {
             let tags = vu.sample_tags(&[("check", &result.name)]);
             vu.metrics.rate(&self.builtins.checks, result.pass, &tags);
         }
+        // Record whether this request failed, so `retry` can react to it.
+        vu.last_request_failed = response.failed() || assert_failed;
         flow
     }
 

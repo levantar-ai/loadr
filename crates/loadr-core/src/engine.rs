@@ -378,6 +378,7 @@ impl Engine {
             think_time: None,
             pacing: None,
             throttle: None,
+            barriers: parking_lot::Mutex::new(std::collections::HashMap::new()),
             tags: Arc::new({
                 let mut t = Tags::new();
                 t.insert("scenario".into(), "setup".into());

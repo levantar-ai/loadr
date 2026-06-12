@@ -112,7 +112,14 @@ fn count_requests(plan: &loadr_config::TestPlan) -> usize {
                 Step::While(w) => steps(&w.steps),
                 Step::If(c) => steps(&c.then) + steps(&c.otherwise),
                 Step::Random(r) => r.choices.iter().map(|c| steps(&c.steps)).sum(),
-                Step::ThinkTime(_) | Step::Js(_) => 0,
+                Step::Foreach(f) => steps(&f.steps),
+                Step::Switch(sw) => {
+                    sw.cases.values().map(|st| steps(st)).sum::<usize>() + steps(&sw.default)
+                }
+                Step::During(d) => steps(&d.steps),
+                Step::Retry(r) => steps(&r.steps),
+                Step::Parallel(p) => p.branches.iter().map(|b| steps(b)).sum(),
+                Step::ThinkTime(_) | Step::Js(_) | Step::Rendezvous(_) => 0,
             })
             .sum()
     }

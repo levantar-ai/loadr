@@ -69,6 +69,22 @@ fn plan_uses_js(plan: &loadr_config::TestPlan) -> bool {
             loadr_config::Step::Random(r) => {
                 r.choices.iter().any(|c| c.steps.iter().any(step_uses))
             }
+            loadr_config::Step::Retry(r) => r.until.is_some() || r.steps.iter().any(step_uses),
+            loadr_config::Step::Foreach(f) => {
+                f.items
+                    .as_str()
+                    .map(|s| s.contains("${js:"))
+                    .unwrap_or(false)
+                    || f.steps.iter().any(step_uses)
+            }
+            loadr_config::Step::Switch(sw) => {
+                sw.value.contains("${js:")
+                    || sw.cases.values().any(|st| st.iter().any(step_uses))
+                    || sw.default.iter().any(step_uses)
+            }
+            loadr_config::Step::During(d) => d.steps.iter().any(step_uses),
+            loadr_config::Step::Parallel(p) => p.branches.iter().any(|b| b.iter().any(step_uses)),
+            loadr_config::Step::Rendezvous(_) => false,
             loadr_config::Step::Request(r) => {
                 let text_has_js = |s: &str| s.contains("${js:");
                 r.url.contains("${js:")

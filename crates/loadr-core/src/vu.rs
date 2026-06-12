@@ -75,6 +75,8 @@ pub struct VuContext {
     pub data_state: crate::data::VuFeedState,
     /// Rows fetched this iteration (one row per source per iteration).
     pub current_rows: HashMap<String, Arc<crate::data::Row>>,
+    /// Whether the most recent request failed (drives `retry` success).
+    pub last_request_failed: bool,
 }
 
 impl VuContext {
@@ -100,6 +102,7 @@ impl VuContext {
             extensions: Extensions::default(),
             data_state: crate::data::VuFeedState::new(),
             current_rows: HashMap::new(),
+            last_request_failed: false,
         }
     }
 

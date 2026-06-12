@@ -1,0 +1,110 @@
+/* loadr.io brand theme for mdBook (overrides the ayu palette). */
+
+:root,
+.ayu {
+  --bg: #0a0a0e;
+  --fg: #d6dae3;
+  --sidebar-bg: #0d0d12;
+  --sidebar-fg: #9ca3af;
+  --sidebar-non-existant: #3a3a4a;
+  --sidebar-active: #f87171;
+  --sidebar-spacer: #232330;
+  --scrollbar: #3a3a4a;
+  --icons: #6b7280;
+  --icons-hover: #ef4444;
+  --links: #f87171;
+  --inline-code-color: #fca5a5;
+  --theme-popup-bg: #141419;
+  --theme-popup-border: #232330;
+  --theme-hover: #1b1b22;
+  --quote-bg: #141419;
+  --quote-border: #dc2626;
+  --table-border-color: #232330;
+  --table-header-bg: #141419;
+  --table-alternate-bg: #101016;
+  --searchbar-border-color: #232330;
+  --searchbar-bg: #141419;
+  --searchbar-fg: #d6dae3;
+  --searchbar-shadow-color: #000;
+  --searchresults-header-fg: #9ca3af;
+  --searchresults-border-color: #232330;
+  --searchresults-li-bg: #141419;
+  --search-mark-bg: #dc2626;
+  --color-scheme: dark;
+}
+
+html, body {
+  background: var(--bg);
+}
+
+/* Headings pick up the brand */
+.content h1, .content h2 {
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.content h2 {
+  border-bottom: 1px solid #232330;
+  padding-bottom: 0.35em;
+}
+.content h3, .content h4 {
+  color: #f3f4f6;
+}
+
+/* Code blocks: match the marketing site */
+.content pre {
+  background: #0a0a0f !important;
+  border: 1px solid #232330;
+  border-radius: 10px;
+}
+.content :not(pre) > code {
+  background: rgba(220, 38, 38, 0.12);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+
+/* Menu bar */
+#menu-bar {
+  background: rgba(10, 10, 14, 0.92);
+  border-bottom: 1px solid #232330;
+  backdrop-filter: blur(8px);
+}
+.menu-title {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+/* Sidebar active chapter */
+.chapter li.chapter-item a.active,
+.chapter li a.active {
+  color: #f87171;
+  font-weight: 700;
+}
+.chapter li.part-title {
+  color: #ef4444;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.78em;
+  letter-spacing: 0.12em;
+}
+
+/* Tables */
+.content table thead th {
+  color: #e5e7eb;
+}
+
+/* Blockquotes get the red rail */
+.content blockquote {
+  border-inline-start: 3px solid #dc2626;
+}
+
+/* Nav arrows */
+.nav-chapters:hover, .mobile-nav-chapters:hover {
+  color: #ef4444;
+}
+
+/* A small "back to loadr.io" affordance in the menu bar via the title link */
+.menu-title::after {
+  content: " docs";
+  color: #ef4444;
+}

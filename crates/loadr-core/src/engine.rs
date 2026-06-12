@@ -1,0 +1,685 @@
+//! The run orchestrator: wires config, scenarios, metrics, thresholds,
+//! outputs and the script engine into one run with live control.
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::Duration;
+
+use loadr_config::{Template, TestPlan};
+use tokio::sync::{mpsc, watch};
+use tokio_util::sync::CancellationToken;
+
+use crate::aggregate::{Aggregator, Snapshot};
+use crate::error::EngineError;
+use crate::executor::{partition_spec, run_scenario, ExecEnv, ScenarioRunSpec};
+use crate::flow::{FlowRunner, ScenarioProgram};
+use crate::metrics::{BuiltinMetrics, MetricRegistry, MetricsBus, Sample, Tags};
+use crate::output::Output;
+use crate::protocol::ProtocolRegistry;
+use crate::script::ScriptEngine;
+use crate::summary::Summary;
+use crate::thresholds::{compile_thresholds, evaluate_all, CompiledThreshold, ThresholdStatus};
+use crate::vu::{RunContext, VuContext};
+
+/// Run status for live consumers.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum RunStatus {
+    Pending,
+    Running,
+    Stopping,
+    Finished { passed: bool },
+}
+
+/// Options for constructing an [`Engine`].
+pub struct EngineOptions {
+    pub run_id: Option<String>,
+    pub protocols: ProtocolRegistry,
+    pub script: Option<Arc<dyn ScriptEngine>>,
+    pub outputs: Vec<Box<dyn Output>>,
+    /// Distributed partition: (index, count). None = the whole load.
+    pub partition: Option<(u64, u64)>,
+    /// Extra tags on every sample (e.g. `instance` in distributed mode).
+    pub extra_tags: Tags,
+    pub snapshot_interval: Duration,
+}
+
+impl Default for EngineOptions {
+    fn default() -> Self {
+        EngineOptions {
+            run_id: None,
+            protocols: ProtocolRegistry::new(),
+            script: None,
+            outputs: Vec::new(),
+            partition: None,
+            extra_tags: Tags::new(),
+            snapshot_interval: Duration::from_secs(1),
+        }
+    }
+}
+
+/// The result of a completed run.
+#[derive(Debug)]
+pub struct RunResult {
+    pub summary: Summary,
+    /// All thresholds passed.
+    pub passed: bool,
+    pub aborted: Option<String>,
+}
+
+/// Cloneable live handle: snapshots, status, stop/pause/scale.
+#[derive(Clone)]
+pub struct RunHandle {
+    pub run_id: Arc<str>,
+    snapshots: watch::Receiver<Arc<Snapshot>>,
+    thresholds: watch::Receiver<Arc<Vec<ThresholdStatus>>>,
+    status: watch::Receiver<RunStatus>,
+    soft_stop: CancellationToken,
+    hard_stop: CancellationToken,
+    pause: Arc<watch::Sender<bool>>,
+    stop_reason: Arc<parking_lot::Mutex<Option<String>>>,
+    scale: Arc<parking_lot::Mutex<HashMap<String, watch::Sender<u64>>>>,
+}
+
+impl RunHandle {
+    pub fn snapshot(&self) -> Arc<Snapshot> {
+        self.snapshots.borrow().clone()
+    }
+
+    pub fn watch_snapshots(&self) -> watch::Receiver<Arc<Snapshot>> {
+        self.snapshots.clone()
+    }
+
+    pub fn threshold_statuses(&self) -> Arc<Vec<ThresholdStatus>> {
+        self.thresholds.borrow().clone()
+    }
+
+    pub fn status(&self) -> RunStatus {
+        self.status.borrow().clone()
+    }
+
+    pub fn watch_status(&self) -> watch::Receiver<RunStatus> {
+        self.status.clone()
+    }
+
+    /// Graceful stop: no new iterations; in-flight ones get their grace period.
+    pub fn stop(&self, reason: impl Into<String>) {
+        *self.stop_reason.lock() = Some(reason.into());
+        self.soft_stop.cancel();
+    }
+
+    /// Immediate abort.
+    pub fn kill(&self, reason: impl Into<String>) {
+        *self.stop_reason.lock() = Some(reason.into());
+        self.soft_stop.cancel();
+        self.hard_stop.cancel();
+    }
+
+    pub fn pause(&self, paused: bool) {
+        let _ = self.pause.send(paused);
+    }
+
+    pub fn is_paused(&self) -> bool {
+        *self.pause.borrow()
+    }
+
+    /// Scale an `externally-controlled` scenario to `vus`.
+    pub fn scale(&self, scenario: &str, vus: u64) -> Result<(), String> {
+        let map = self.scale.lock();
+        match map.get(scenario) {
+            Some(tx) => {
+                let _ = tx.send(vus);
+                Ok(())
+            }
+            None => Err(format!(
+                "scenario `{scenario}` is not externally controlled (available: {})",
+                map.keys().cloned().collect::<Vec<_>>().join(", ")
+            )),
+        }
+    }
+
+    pub fn externally_controlled_scenarios(&self) -> Vec<String> {
+        self.scale.lock().keys().cloned().collect()
+    }
+}
+
+struct PreparedScenario {
+    run_spec: ScenarioRunSpec,
+    program: Arc<ScenarioProgram>,
+}
+
+/// The engine for one test run.
+pub struct Engine {
+    plan_name: Option<String>,
+    run_id: Arc<str>,
+    scenarios: Vec<PreparedScenario>,
+    thresholds: Vec<CompiledThreshold>,
+    run_ctx: Arc<RunContext>,
+    protocols: Arc<ProtocolRegistry>,
+    script: Option<Arc<dyn ScriptEngine>>,
+    outputs: Vec<Box<dyn Output>>,
+    builtins: Arc<BuiltinMetrics>,
+    snapshot_interval: Duration,
+    http_defaults: Arc<loadr_config::HttpDefaults>,
+    // Handle plumbing.
+    handle: RunHandle,
+    snapshots_tx: watch::Sender<Arc<Snapshot>>,
+    thresholds_tx: watch::Sender<Arc<Vec<ThresholdStatus>>>,
+    status_tx: watch::Sender<RunStatus>,
+    external_targets: HashMap<String, watch::Receiver<u64>>,
+}
+
+impl Engine {
+    pub fn new(
+        plan: TestPlan,
+        base_dir: PathBuf,
+        opts: EngineOptions,
+    ) -> Result<Engine, EngineError> {
+        let mut plan = plan;
+        // Extra tags become defaults so every program embeds them.
+        for (k, v) in &opts.extra_tags {
+            plan.defaults.tags.insert(k.clone(), v.clone());
+        }
+
+        let env: HashMap<String, String> = std::env::vars().collect();
+
+        // Static interpolation of variables (env-only references).
+        let mut variables = serde_json::Map::new();
+        for (name, value) in &plan.variables {
+            let resolved = resolve_static_value(value, &env)
+                .map_err(|e| EngineError::Config(format!("variable `{name}`: {e}")))?;
+            variables.insert(name.clone(), resolved);
+        }
+
+        // Secrets.
+        let mut secrets = HashMap::new();
+        for (name, source) in &plan.secrets {
+            let value = if let Some(var) = &source.env {
+                env.get(var).cloned().ok_or_else(|| {
+                    EngineError::Config(format!(
+                        "secret `{name}`: environment variable `{var}` is not set"
+                    ))
+                })?
+            } else if let Some(file) = &source.file {
+                let resolved = if file.is_absolute() {
+                    file.clone()
+                } else {
+                    base_dir.join(file)
+                };
+                std::fs::read_to_string(&resolved)
+                    .map_err(|e| EngineError::Io {
+                        path: resolved.display().to_string(),
+                        source: e,
+                    })?
+                    .trim()
+                    .to_string()
+            } else {
+                return Err(EngineError::Config(format!(
+                    "secret `{name}` has no `env` or `file` source"
+                )));
+            };
+            secrets.insert(name.clone(), value);
+        }
+
+        // Metrics registry: builtins + YAML custom metrics.
+        let registry = Arc::new(MetricRegistry::with_builtins());
+        for (name, def) in &plan.metrics {
+            registry
+                .register(name, def.kind.into(), def.time, def.description.clone())
+                .map_err(EngineError::Config)?;
+        }
+        let builtins = Arc::new(BuiltinMetrics::resolve(&registry));
+
+        // Data feeds.
+        let data = crate::data::DataFeeds::load(&plan.data, &base_dir)?;
+
+        let run_ctx = Arc::new(RunContext {
+            variables,
+            secrets,
+            env,
+            data,
+            registry,
+            base_dir: base_dir.clone(),
+            setup_data: parking_lot::RwLock::new(serde_json::Value::Null),
+        });
+
+        // Thresholds.
+        let thresholds = compile_thresholds(&plan.thresholds).map_err(EngineError::Config)?;
+
+        // Scenarios.
+        let mut scenarios = Vec::new();
+        let mut external_targets = HashMap::new();
+        let scale_map: HashMap<String, watch::Sender<u64>> = HashMap::new();
+        let scale = Arc::new(parking_lot::Mutex::new(scale_map));
+        for (name, scenario) in &plan.scenarios {
+            let mut spec = scenario
+                .executor_spec()
+                .map_err(|e| EngineError::Config(format!("scenario `{name}`: {e}")))?;
+            if let Some((index, count)) = opts.partition {
+                spec = partition_spec(&spec, index, count);
+            }
+            if let loadr_config::ExecutorSpec::ExternallyControlled { .. } = &spec {
+                let (tx, rx) = watch::channel(0u64);
+                scale.lock().insert(name.clone(), tx);
+                external_targets.insert(name.clone(), rx);
+            }
+            let program = Arc::new(ScenarioProgram::compile(&plan, name, scenario, &base_dir)?);
+            scenarios.push(PreparedScenario {
+                run_spec: ScenarioRunSpec {
+                    name: Arc::from(name.as_str()),
+                    spec,
+                    start_time: scenario
+                        .start_time
+                        .map(|d| d.as_duration())
+                        .unwrap_or(Duration::ZERO),
+                    graceful_stop: scenario
+                        .graceful_stop
+                        .map(|d| d.as_duration())
+                        .unwrap_or(Duration::from_secs(30)),
+                    graceful_ramp_down: scenario
+                        .graceful_ramp_down
+                        .map(|d| d.as_duration())
+                        .unwrap_or(Duration::from_secs(30)),
+                },
+                program,
+            });
+        }
+        if scenarios.is_empty() {
+            return Err(EngineError::Config(
+                "test has no scenarios to run".to_string(),
+            ));
+        }
+
+        let run_id: Arc<str> = Arc::from(
+            opts.run_id
+                .unwrap_or_else(|| uuid::Uuid::new_v4().to_string())
+                .as_str(),
+        );
+        let (snapshots_tx, snapshots_rx) = watch::channel(Arc::new(Snapshot::default()));
+        let (thresholds_tx, thresholds_rx) = watch::channel(Arc::new(Vec::new()));
+        let (status_tx, status_rx) = watch::channel(RunStatus::Pending);
+        let (pause_tx, _pause_rx) = watch::channel(false);
+        let handle = RunHandle {
+            run_id: run_id.clone(),
+            snapshots: snapshots_rx,
+            thresholds: thresholds_rx,
+            status: status_rx,
+            soft_stop: CancellationToken::new(),
+            hard_stop: CancellationToken::new(),
+            pause: Arc::new(pause_tx),
+            stop_reason: Arc::new(parking_lot::Mutex::new(None)),
+            scale,
+        };
+
+        Ok(Engine {
+            plan_name: plan.name.clone(),
+            run_id,
+            scenarios,
+            thresholds,
+            run_ctx,
+            protocols: Arc::new(opts.protocols),
+            script: opts.script,
+            outputs: opts.outputs,
+            builtins,
+            snapshot_interval: opts.snapshot_interval,
+            http_defaults: Arc::new(plan.defaults.http.clone()),
+            handle,
+            snapshots_tx,
+            thresholds_tx,
+            status_tx,
+            external_targets,
+        })
+    }
+
+    pub fn handle(&self) -> RunHandle {
+        self.handle.clone()
+    }
+
+    /// Run the test to completion.
+    pub async fn run(mut self) -> Result<RunResult, EngineError> {
+        let started_ms = crate::metrics::now_millis();
+        let (bus, samples_rx) = MetricsBus::new();
+        let _ = self.status_tx.send(RunStatus::Running);
+
+        // Abort channel: threshold failures, abort_test assertions.
+        let (abort_tx, mut abort_rx) = mpsc::unbounded_channel::<String>();
+
+        // Start outputs.
+        let mut outputs = std::mem::take(&mut self.outputs);
+        for output in &mut outputs {
+            output.start().await?;
+        }
+
+        // Aggregator task.
+        let agg_task = {
+            let snapshots_tx = self.snapshots_tx.clone();
+            let thresholds_tx = self.thresholds_tx.clone();
+            let thresholds = std::mem::take(&mut self.thresholds);
+            let abort_tx = abort_tx.clone();
+            let interval = self.snapshot_interval;
+            tokio::spawn(aggregator_loop(
+                samples_rx,
+                outputs,
+                thresholds,
+                snapshots_tx,
+                thresholds_tx,
+                abort_tx,
+                interval,
+            ))
+        };
+
+        // A FlowRunner for setup/teardown host calls (plan-level defaults).
+        let lifecycle_program = Arc::new(ScenarioProgram {
+            name: Arc::from("setup"),
+            steps: Vec::new(),
+            exec: None,
+            think_time: None,
+            pacing: None,
+            tags: Arc::new({
+                let mut t = Tags::new();
+                t.insert("scenario".into(), "setup".into());
+                t
+            }),
+            http: self.http_defaults.clone(),
+            cookies_auto: self.http_defaults.cookies,
+        });
+        let lifecycle_runner = Arc::new(FlowRunner {
+            program: lifecycle_program,
+            protocols: self.protocols.clone(),
+            builtins: self.builtins.clone(),
+        });
+
+        // setup()
+        if let Some(script) = &self.script {
+            let mut vu = VuContext::new(
+                0,
+                Arc::from("setup"),
+                lifecycle_runner.program.tags.clone(),
+                bus.clone(),
+                self.run_ctx.clone(),
+                self.http_defaults.cookies,
+            );
+            let setup_result =
+                crate::flow::with_host(&lifecycle_runner, &mut vu, |host| script.setup(host));
+            match setup_result {
+                Ok(data) => {
+                    *self.run_ctx.setup_data.write() = data;
+                }
+                Err(e) => {
+                    self.handle.kill(format!("setup() failed: {e}"));
+                    let _ = agg_task.await;
+                    return Err(EngineError::Script(format!("setup() failed: {e}")));
+                }
+            }
+        }
+
+        // VU gauge reporter.
+        let active_counters: Vec<Arc<AtomicU64>> = self
+            .scenarios
+            .iter()
+            .map(|_| Arc::new(AtomicU64::new(0)))
+            .collect();
+        let gauge_task = {
+            let bus = bus.clone();
+            let builtins = self.builtins.clone();
+            let counters = active_counters.clone();
+            let stop = self.handle.hard_stop.clone();
+            let done = CancellationToken::new();
+            let done_child = done.clone();
+            let task = tokio::spawn(async move {
+                let tags = Arc::new(Tags::new());
+                let mut max_seen = 0u64;
+                let mut ticker = tokio::time::interval(Duration::from_secs(1));
+                loop {
+                    tokio::select! {
+                        _ = ticker.tick() => {}
+                        _ = stop.cancelled() => break,
+                        _ = done_child.cancelled() => break,
+                    }
+                    let active: u64 = counters.iter().map(|c| c.load(Ordering::Relaxed)).sum();
+                    max_seen = max_seen.max(active);
+                    bus.gauge(&builtins.vus, active as f64, &tags);
+                    bus.gauge(&builtins.vus_max, max_seen as f64, &tags);
+                }
+            });
+            (task, done)
+        };
+
+        // Spawn scenarios.
+        let vu_ids = Arc::new(AtomicU64::new(0));
+        let mut scenario_tasks = Vec::new();
+        let scenario_names: Vec<String> = self
+            .scenarios
+            .iter()
+            .map(|s| s.run_spec.name.to_string())
+            .collect();
+        for (i, prepared) in self.scenarios.drain(..).enumerate() {
+            let runner = Arc::new(FlowRunner {
+                program: prepared.program.clone(),
+                protocols: self.protocols.clone(),
+                builtins: self.builtins.clone(),
+            });
+            let env = ExecEnv {
+                runner,
+                run_ctx: self.run_ctx.clone(),
+                metrics: bus.clone(),
+                builtins: self.builtins.clone(),
+                script: self.script.clone(),
+                soft_stop: self.handle.soft_stop.clone(),
+                hard_stop: self.handle.hard_stop.clone(),
+                pause: self.handle.pause.subscribe(),
+                vu_ids: vu_ids.clone(),
+                active_vus: active_counters[i].clone(),
+                abort_tx: abort_tx.clone(),
+                external_target: self
+                    .external_targets
+                    .get(prepared.run_spec.name.as_ref())
+                    .cloned(),
+            };
+            scenario_tasks.push(tokio::spawn(run_scenario(prepared.run_spec, env)));
+        }
+        drop(abort_tx);
+
+        // Wait for completion or abort.
+        let mut aborted: Option<String> = None;
+        let all_done = futures::future::join_all(scenario_tasks);
+        tokio::pin!(all_done);
+        tokio::select! {
+            _ = &mut all_done => {}
+            reason = abort_rx.recv() => {
+                if let Some(reason) = reason {
+                    tracing::warn!(reason = %reason, "aborting run");
+                    aborted = Some(reason.clone());
+                    *self.handle.stop_reason.lock() = Some(reason);
+                    let _ = self.status_tx.send(RunStatus::Stopping);
+                    self.handle.soft_stop.cancel();
+                    // Safety net: hard-cancel if graceful stop hangs.
+                    let hard = self.handle.hard_stop.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_secs(35)).await;
+                        hard.cancel();
+                    });
+                    (&mut all_done).await;
+                }
+            }
+            _ = self.handle.soft_stop.cancelled() => {
+                let _ = self.status_tx.send(RunStatus::Stopping);
+                let hard = self.handle.hard_stop.clone();
+                tokio::spawn(async move {
+                    tokio::time::sleep(Duration::from_secs(35)).await;
+                    hard.cancel();
+                });
+                (&mut all_done).await;
+            }
+        }
+        if aborted.is_none() {
+            aborted = self.handle.stop_reason.lock().clone();
+        }
+
+        // teardown()
+        if let Some(script) = &self.script {
+            let mut vu = VuContext::new(
+                0,
+                Arc::from("teardown"),
+                lifecycle_runner.program.tags.clone(),
+                bus.clone(),
+                self.run_ctx.clone(),
+                self.http_defaults.cookies,
+            );
+            let setup_data = self.run_ctx.setup_data.read().clone();
+            let result = crate::flow::with_host(&lifecycle_runner, &mut vu, |host| {
+                script.teardown(host, setup_data)
+            });
+            if let Err(e) = result {
+                tracing::error!(error = %e, "teardown() failed");
+            }
+        }
+
+        // Stop gauge reporter, close the bus, finish aggregation.
+        gauge_task.1.cancel();
+        let _ = gauge_task.0.await;
+        drop(bus);
+        let (mut aggregator, mut outputs, threshold_statuses) = agg_task
+            .await
+            .map_err(|e| EngineError::Other(format!("aggregator task panicked: {e}")))?;
+
+        let summary = Summary::build(
+            self.plan_name.clone(),
+            self.run_id.to_string(),
+            started_ms,
+            scenario_names,
+            &mut aggregator,
+            threshold_statuses,
+            aborted.clone(),
+        );
+        for output in &mut outputs {
+            output.finish(&summary).await;
+        }
+        let passed = summary.thresholds_passed && aborted.is_none();
+        let _ = self.status_tx.send(RunStatus::Finished { passed });
+        Ok(RunResult {
+            passed: summary.thresholds_passed,
+            summary,
+            aborted,
+        })
+    }
+}
+
+/// The aggregator loop: drains samples, snapshots once per interval, feeds
+/// outputs, and evaluates thresholds continuously.
+async fn aggregator_loop(
+    mut samples_rx: mpsc::UnboundedReceiver<Sample>,
+    mut outputs: Vec<Box<dyn Output>>,
+    thresholds: Vec<CompiledThreshold>,
+    snapshots_tx: watch::Sender<Arc<Snapshot>>,
+    thresholds_tx: watch::Sender<Arc<Vec<ThresholdStatus>>>,
+    abort_tx: mpsc::UnboundedSender<String>,
+    interval: Duration,
+) -> (Aggregator, Vec<Box<dyn Output>>, Vec<ThresholdStatus>) {
+    let mut agg = Aggregator::new();
+    let mut batch: Vec<Sample> = Vec::with_capacity(1024);
+    let mut ticker = tokio::time::interval(interval);
+    ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    let mut abort_sent = false;
+
+    loop {
+        tokio::select! {
+            maybe = samples_rx.recv() => {
+                match maybe {
+                    Some(sample) => {
+                        agg.record(&sample);
+                        batch.push(sample);
+                        // Opportunistically drain without yielding.
+                        while batch.len() < 8192 {
+                            match samples_rx.try_recv() {
+                                Ok(s) => {
+                                    agg.record(&s);
+                                    batch.push(s);
+                                }
+                                Err(_) => break,
+                            }
+                        }
+                        if batch.len() >= 8192 {
+                            for output in &mut outputs {
+                                output.on_samples(&batch).await;
+                            }
+                            batch.clear();
+                        }
+                    }
+                    None => break,
+                }
+            }
+            _ = ticker.tick() => {
+                if !batch.is_empty() {
+                    for output in &mut outputs {
+                        output.on_samples(&batch).await;
+                    }
+                    batch.clear();
+                }
+                let snapshot = Arc::new(agg.snapshot());
+                for output in &mut outputs {
+                    output.on_snapshot(&snapshot).await;
+                }
+                let _ = snapshots_tx.send(snapshot);
+                let (statuses, abort) = evaluate_all(&thresholds, &agg, agg.elapsed());
+                let _ = thresholds_tx.send(Arc::new(statuses));
+                if abort && !abort_sent {
+                    abort_sent = true;
+                    let _ = abort_tx.send("threshold crossed (abort_on_fail)".to_string());
+                }
+            }
+        }
+    }
+    if !batch.is_empty() {
+        for output in &mut outputs {
+            output.on_samples(&batch).await;
+        }
+    }
+    // Final threshold evaluation over the complete data.
+    let (statuses, _) = evaluate_all(&thresholds, &agg, agg.elapsed());
+    let _ = thresholds_tx.send(Arc::new(statuses.clone()));
+    let last_statuses = statuses;
+    let final_snapshot = Arc::new(agg.snapshot());
+    let _ = snapshots_tx.send(final_snapshot);
+    (agg, outputs, last_statuses)
+}
+
+fn resolve_static_value(
+    value: &serde_json::Value,
+    env: &HashMap<String, String>,
+) -> Result<serde_json::Value, String> {
+    Ok(match value {
+        serde_json::Value::String(s) => {
+            let tpl = Template::parse(s).map_err(|e| e.to_string())?;
+            if tpl.is_literal() {
+                value.clone()
+            } else {
+                let rendered = tpl
+                    .render(|expr| {
+                        expr.strip_prefix("env.")
+                            .and_then(|name| env.get(name).cloned())
+                            // Non-env expressions resolve at runtime; keep as-is.
+                            .or(Some(format!("${{{expr}}}")))
+                    })
+                    .map_err(|e| e.to_string())?;
+                serde_json::Value::String(rendered)
+            }
+        }
+        serde_json::Value::Array(items) => serde_json::Value::Array(
+            items
+                .iter()
+                .map(|v| resolve_static_value(v, env))
+                .collect::<Result<_, _>>()?,
+        ),
+        serde_json::Value::Object(map) => {
+            let mut out = serde_json::Map::new();
+            for (k, v) in map {
+                out.insert(k.clone(), resolve_static_value(v, env)?);
+            }
+            serde_json::Value::Object(out)
+        }
+        other => other.clone(),
+    })
+}

@@ -1,0 +1,446 @@
+//! Assertion/check evaluation against protocol responses.
+
+use loadr_config::{Condition, FailureAction};
+
+use crate::extract::xpath_eval;
+use crate::protocol::ProtocolResponse;
+
+/// A compiled condition (regexes/paths parsed at plan compile time).
+#[derive(Debug)]
+pub struct CompiledCondition {
+    pub name: String,
+    pub on_failure: FailureAction,
+    kind: Kind,
+}
+
+#[derive(Debug)]
+enum Kind {
+    Status {
+        equals: Option<i64>,
+        one_of: Option<Vec<i64>>,
+        matches: Option<regex::Regex>,
+    },
+    BodyContains {
+        value: String,
+        negate: bool,
+    },
+    BodyMatches {
+        pattern: regex::Regex,
+        negate: bool,
+    },
+    Jsonpath {
+        path: serde_json_path::JsonPath,
+        equals: Option<serde_json::Value>,
+        exists: bool,
+    },
+    Xpath {
+        expression: String,
+        equals: Option<String>,
+        exists: bool,
+    },
+    Duration {
+        max_ms: f64,
+    },
+    Size {
+        min: Option<u64>,
+        max: Option<u64>,
+        equals: Option<u64>,
+    },
+    Header {
+        header: String,
+        equals: Option<String>,
+        contains: Option<String>,
+        exists: bool,
+    },
+    Js {
+        expression: String,
+    },
+}
+
+/// The result of evaluating one condition.
+#[derive(Debug, Clone)]
+pub struct ConditionResult {
+    pub name: String,
+    pub pass: bool,
+    /// Human-readable failure detail.
+    pub detail: Option<String>,
+    pub on_failure: FailureAction,
+    /// JS conditions are deferred to the script engine.
+    pub needs_js: Option<String>,
+}
+
+impl CompiledCondition {
+    pub fn compile(spec: &Condition) -> Result<Self, String> {
+        let name = spec.display_name();
+        let on_failure = spec.on_failure();
+        let kind = match spec {
+            Condition::Status {
+                equals,
+                one_of,
+                matches,
+                ..
+            } => Kind::Status {
+                equals: *equals,
+                one_of: one_of.clone(),
+                matches: matches
+                    .as_ref()
+                    .map(|m| regex::Regex::new(m))
+                    .transpose()
+                    .map_err(|e| format!("condition `{name}`: {e}"))?,
+            },
+            Condition::BodyContains { value, negate, .. } => Kind::BodyContains {
+                value: value.clone(),
+                negate: *negate,
+            },
+            Condition::BodyMatches {
+                pattern, negate, ..
+            } => Kind::BodyMatches {
+                pattern: regex::Regex::new(pattern)
+                    .map_err(|e| format!("condition `{name}`: {e}"))?,
+                negate: *negate,
+            },
+            Condition::Jsonpath {
+                expression,
+                equals,
+                exists,
+                ..
+            } => Kind::Jsonpath {
+                path: serde_json_path::JsonPath::parse(expression)
+                    .map_err(|e| format!("condition `{name}`: {e}"))?,
+                equals: equals.clone(),
+                exists: exists.unwrap_or(true),
+            },
+            Condition::Xpath {
+                expression,
+                equals,
+                exists,
+                ..
+            } => Kind::Xpath {
+                expression: expression.clone(),
+                equals: equals.clone(),
+                exists: exists.unwrap_or(true),
+            },
+            Condition::Duration { max, .. } => Kind::Duration {
+                max_ms: max.as_duration().as_secs_f64() * 1000.0,
+            },
+            Condition::Size {
+                min, max, equals, ..
+            } => Kind::Size {
+                min: *min,
+                max: *max,
+                equals: *equals,
+            },
+            Condition::Header {
+                header,
+                equals,
+                contains,
+                exists,
+                ..
+            } => Kind::Header {
+                header: header.clone(),
+                equals: equals.clone(),
+                contains: contains.clone(),
+                exists: exists.unwrap_or(true),
+            },
+            Condition::Js { expression, .. } => Kind::Js {
+                expression: expression.clone(),
+            },
+        };
+        Ok(CompiledCondition {
+            name,
+            on_failure,
+            kind,
+        })
+    }
+
+    pub fn evaluate(&self, response: &ProtocolResponse) -> ConditionResult {
+        let mut result = ConditionResult {
+            name: self.name.clone(),
+            pass: true,
+            detail: None,
+            on_failure: self.on_failure,
+            needs_js: None,
+        };
+        let fail = |result: &mut ConditionResult, detail: String| {
+            result.pass = false;
+            result.detail = Some(detail);
+        };
+        match &self.kind {
+            Kind::Status {
+                equals,
+                one_of,
+                matches,
+            } => {
+                let status = response.status;
+                if let Some(e) = equals {
+                    if status != *e {
+                        fail(&mut result, format!("expected status {e}, got {status}"));
+                    }
+                }
+                if let Some(set) = one_of {
+                    if !set.contains(&status) {
+                        fail(
+                            &mut result,
+                            format!("expected status in {set:?}, got {status}"),
+                        );
+                    }
+                }
+                if let Some(re) = matches {
+                    if !re.is_match(&status.to_string()) {
+                        fail(
+                            &mut result,
+                            format!("status {status} does not match /{re}/"),
+                        );
+                    }
+                }
+            }
+            Kind::BodyContains { value, negate } => {
+                let contains = response.body_text().contains(value.as_str());
+                if contains == *negate {
+                    fail(
+                        &mut result,
+                        if *negate {
+                            format!("body unexpectedly contains {value:?}")
+                        } else {
+                            format!("body does not contain {value:?}")
+                        },
+                    );
+                }
+            }
+            Kind::BodyMatches { pattern, negate } => {
+                let matched = pattern.is_match(&response.body_text());
+                if matched == *negate {
+                    fail(
+                        &mut result,
+                        if *negate {
+                            format!("body unexpectedly matches /{pattern}/")
+                        } else {
+                            format!("body does not match /{pattern}/")
+                        },
+                    );
+                }
+            }
+            Kind::Jsonpath {
+                path,
+                equals,
+                exists,
+            } => {
+                let body: serde_json::Value =
+                    serde_json::from_slice(&response.body).unwrap_or(serde_json::Value::Null);
+                let nodes = path.query(&body);
+                let first = nodes.first();
+                match (exists, first) {
+                    (true, None) => fail(&mut result, "no JSONPath match".to_string()),
+                    (false, Some(v)) => {
+                        fail(&mut result, format!("unexpected JSONPath match: {v}"))
+                    }
+                    (true, Some(v)) => {
+                        if let Some(expected) = equals {
+                            if *v != *expected {
+                                fail(&mut result, format!("expected {expected}, got {v}"));
+                            }
+                        }
+                    }
+                    (false, None) => {}
+                }
+            }
+            Kind::Xpath {
+                expression,
+                equals,
+                exists,
+            } => match xpath_eval(&response.body_text(), expression) {
+                Err(e) => fail(&mut result, format!("xpath error: {e}")),
+                Ok(found) => match (exists, found) {
+                    (true, None) => fail(&mut result, "no XPath match".to_string()),
+                    (false, Some(v)) => fail(&mut result, format!("unexpected XPath match: {v}")),
+                    (true, Some(v)) => {
+                        if let Some(expected) = equals {
+                            if v != *expected {
+                                fail(&mut result, format!("expected {expected:?}, got {v:?}"));
+                            }
+                        }
+                    }
+                    (false, None) => {}
+                },
+            },
+            Kind::Duration { max_ms } => {
+                let actual = response.timings.duration_ms;
+                if actual > *max_ms {
+                    fail(
+                        &mut result,
+                        format!("duration {actual:.1}ms exceeds {max_ms:.0}ms"),
+                    );
+                }
+            }
+            Kind::Size { min, max, equals } => {
+                let size = response.body.len() as u64;
+                if let Some(e) = equals {
+                    if size != *e {
+                        fail(&mut result, format!("expected size {e}, got {size}"));
+                    }
+                }
+                if let Some(m) = min {
+                    if size < *m {
+                        fail(&mut result, format!("size {size} below minimum {m}"));
+                    }
+                }
+                if let Some(m) = max {
+                    if size > *m {
+                        fail(&mut result, format!("size {size} above maximum {m}"));
+                    }
+                }
+            }
+            Kind::Header {
+                header,
+                equals,
+                contains,
+                exists,
+            } => {
+                let value = response.header(header);
+                match (exists, value) {
+                    (true, None) => fail(&mut result, format!("missing header `{header}`")),
+                    (false, Some(v)) => {
+                        fail(&mut result, format!("unexpected header `{header}: {v}`"))
+                    }
+                    (true, Some(v)) => {
+                        if let Some(e) = equals {
+                            if v != e {
+                                fail(
+                                    &mut result,
+                                    format!("header `{header}` is {v:?}, expected {e:?}"),
+                                );
+                            }
+                        }
+                        if let Some(c) = contains {
+                            if !v.contains(c.as_str()) {
+                                fail(
+                                    &mut result,
+                                    format!(
+                                        "header `{header}` is {v:?}, expected to contain {c:?}"
+                                    ),
+                                );
+                            }
+                        }
+                    }
+                    (false, None) => {}
+                }
+            }
+            Kind::Js { expression } => {
+                // Evaluated by the caller via the script engine.
+                result.needs_js = Some(expression.clone());
+            }
+        }
+        result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bytes::Bytes;
+
+    fn compile(yaml: &str) -> CompiledCondition {
+        let spec: Condition = serde_yaml::from_str(yaml).expect("spec");
+        CompiledCondition::compile(&spec).expect("compile")
+    }
+
+    fn response(status: i64, body: &str) -> ProtocolResponse {
+        ProtocolResponse {
+            status,
+            body: Bytes::from(body.to_string()),
+            protocol_version: "HTTP/1.1".into(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn status_conditions() {
+        let c = compile("{ type: status, equals: 200 }");
+        assert!(c.evaluate(&response(200, "")).pass);
+        assert!(!c.evaluate(&response(404, "")).pass);
+
+        let c = compile("{ type: status, one_of: [200, 201, 204] }");
+        assert!(c.evaluate(&response(204, "")).pass);
+        assert!(!c.evaluate(&response(500, "")).pass);
+
+        let c = compile(r#"{ type: status, matches: "2.." }"#);
+        assert!(c.evaluate(&response(299, "")).pass);
+        assert!(!c.evaluate(&response(301, "")).pass);
+    }
+
+    #[test]
+    fn body_conditions() {
+        let c = compile("{ type: body_contains, value: Welcome }");
+        assert!(c.evaluate(&response(200, "Welcome home")).pass);
+        let r = c.evaluate(&response(200, "Goodbye"));
+        assert!(!r.pass);
+        assert!(r.detail.unwrap().contains("does not contain"));
+
+        let c = compile("{ type: body_contains, value: error, negate: true }");
+        assert!(c.evaluate(&response(200, "all good")).pass);
+        assert!(!c.evaluate(&response(200, "error: boom")).pass);
+
+        let c = compile(r#"{ type: body_matches, pattern: "id=\\d+" }"#);
+        assert!(c.evaluate(&response(200, "id=42")).pass);
+        assert!(!c.evaluate(&response(200, "id=none")).pass);
+    }
+
+    #[test]
+    fn jsonpath_conditions() {
+        let c = compile(r#"{ type: jsonpath, expression: "$.ok", equals: true }"#);
+        assert!(c.evaluate(&response(200, r#"{"ok":true}"#)).pass);
+        assert!(!c.evaluate(&response(200, r#"{"ok":false}"#)).pass);
+
+        let c = compile(r#"{ type: jsonpath, expression: "$.missing", exists: false }"#);
+        assert!(c.evaluate(&response(200, r#"{"ok":true}"#)).pass);
+        assert!(!c.evaluate(&response(200, r#"{"missing":1}"#)).pass);
+    }
+
+    #[test]
+    fn xpath_conditions() {
+        let c = compile(r#"{ type: xpath, expression: "//name", equals: alpha }"#);
+        assert!(c.evaluate(&response(200, "<r><name>alpha</name></r>")).pass);
+        assert!(!c.evaluate(&response(200, "<r><name>beta</name></r>")).pass);
+    }
+
+    #[test]
+    fn duration_and_size() {
+        let c = compile("{ type: duration, max: 100ms }");
+        let mut r = response(200, "x");
+        r.timings.duration_ms = 50.0;
+        assert!(c.evaluate(&r).pass);
+        r.timings.duration_ms = 150.0;
+        assert!(!c.evaluate(&r).pass);
+
+        let c = compile("{ type: size, min: 2, max: 5 }");
+        assert!(c.evaluate(&response(200, "abc")).pass);
+        assert!(!c.evaluate(&response(200, "a")).pass);
+        assert!(!c.evaluate(&response(200, "abcdef")).pass);
+    }
+
+    #[test]
+    fn header_conditions() {
+        let c = compile("{ type: header, header: content-type, contains: json }");
+        let mut r = response(200, "{}");
+        r.headers
+            .push(("Content-Type".into(), "application/json".into()));
+        assert!(c.evaluate(&r).pass);
+        let r2 = response(200, "{}");
+        assert!(!c.evaluate(&r2).pass);
+    }
+
+    #[test]
+    fn js_condition_defers() {
+        let c = compile(r#"{ type: js, expression: "response.status === 200" }"#);
+        let r = c.evaluate(&response(200, ""));
+        assert_eq!(r.needs_js.as_deref(), Some("response.status === 200"));
+        assert!(r.pass, "pass until JS says otherwise");
+    }
+
+    #[test]
+    fn failure_action_propagates() {
+        let c = compile("{ type: status, equals: 200, on_failure: abort_iteration }");
+        let r = c.evaluate(&response(500, ""));
+        assert_eq!(r.on_failure, FailureAction::AbortIteration);
+    }
+}

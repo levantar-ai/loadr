@@ -19,6 +19,8 @@ echo "==> assembling dist"
 rm -rf "$DIST"
 mkdir -p "$DIST/assets" "$DIST/docs"
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$DIST/"
+mkdir -p "$DIST/demos"
+cp "$ROOT/site/demos.html" "$DIST/demos/index.html"
 cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/favicon.svg" "$DIST/assets/"
 cp -r "$ROOT/docs/book/." "$DIST/docs/"
 if [ -d "$ROOT/site/videos/out" ]; then

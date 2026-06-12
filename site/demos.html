@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demos &amp; training — loadr</title>
+<meta name="description" content="Watch loadr in action: quickstart, validation, data-driven testing, CI gates, JMeter/k6 migration, distributed fleets and the live web UI. Real recordings of real runs.">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/site.css">
+</head>
+<body class="antialiased">
+
+<header class="fixed top-0 inset-x-0 z-50 border-b border-edge/70 bg-ink/85 backdrop-blur">
+  <nav class="mx-auto flex h-16 max-w-7xl items-center justify-between px-5">
+    <a href="/" class="flex items-center gap-2.5">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><path d="M18 2 L8 18 L15 18 L13 30 L24 13 L17 13 Z" fill="#ef4444"/></svg>
+      <span class="text-lg font-extrabold tracking-tight text-white">loadr<span class="text-ember">.io</span></span>
+    </a>
+    <div class="hidden items-center gap-7 text-sm font-medium text-smoke lg:flex">
+      <a class="font-semibold text-flare" href="/demos/">Demos</a>
+      <a class="hover:text-flare" href="/#features">Features</a>
+      <a class="hover:text-flare" href="/#protocols">Protocols</a>
+      <a class="hover:text-flare" href="/#distributed">Distributed</a>
+      <a class="hover:text-flare" href="/#compare">vs k6 / JMeter</a>
+      <a class="hover:text-flare" href="/docs/">Docs</a>
+      <a href="/#install" class="glow rounded-lg bg-blood px-4 py-2 font-semibold text-white transition">Download</a>
+    </div>
+    <button id="navToggle" class="rounded-md border border-edge p-2 text-smoke lg:hidden" aria-label="menu">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </nav>
+  <div id="navMenu" class="hidden border-t border-edge bg-coal px-5 py-4 lg:hidden">
+    <div class="grid gap-3 text-sm font-medium text-smoke">
+      <a class="text-flare" href="/demos/">Demos</a><a href="/#features">Features</a>
+      <a href="/#protocols">Protocols</a><a href="/#distributed">Distributed</a>
+      <a href="/docs/">Docs</a><a class="font-semibold text-flare" href="/#install">Download</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero-grid relative overflow-hidden pt-32 pb-12">
+  <div class="pointer-events-none absolute -top-48 left-1/2 h-96 w-[60rem] -translate-x-1/2 rounded-full bg-blood/20 blur-[140px]"></div>
+  <div class="mx-auto max-w-5xl px-5 text-center">
+    <p class="kicker">Demos &amp; training</p>
+    <h1 class="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">Watch loadr work.</h1>
+    <p class="mx-auto mt-5 max-w-2xl text-lg text-smoke">
+      Seven short sessions, from your first test to a distributed fleet. Every clip is a real
+      recording of the actual binary against a live server — what you see is what you get.
+      Follow them in order as a getting-started course, or jump to the feature you need.
+    </p>
+  </div>
+</section>
+
+<section class="pb-24">
+  <div class="mx-auto max-w-4xl space-y-14 px-5">
+
+    <!-- 1 -->
+    <article id="quickstart" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">01</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">The quickstart <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:24</span></h2>
+          <p class="mt-1 text-sm text-smoke">A complete load test in 20 lines of YAML: validate it, run it, read the summary.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/01-quickstart-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/01-quickstart.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> the <code class="text-flare">scenarios / flow / thresholds</code> structure</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> <code class="text-flare">loadr validate</code> before you burn a test run</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> live progress, then the k6-style summary</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> checks, latency percentiles and green thresholds</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/getting-started/first-test.html">Your first test</a></p>
+    </article>
+
+    <!-- 2 -->
+    <article id="validation" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">02</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">Validation that respects you <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:16</span></h2>
+          <p class="mt-1 text-sm text-smoke">Broken test in, precise diagnostics out — before a single request is sent.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/02-validation-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/02-validation.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> line &amp; column on every finding</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> did-you-mean fixes for typos</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> executor parameter checks</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> undefined-variable detection</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/getting-started/cli.html#loadr-validate">loadr validate</a></p>
+    </article>
+
+    <!-- 3 -->
+    <article id="features" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">03</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">Data, extraction &amp; JS in one flow <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:18</span></h2>
+          <p class="mt-1 text-sm text-smoke">The correlation workflow every real test needs.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/03-feature-tour-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/03-feature-tour.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> CSV rows feeding each login</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> JSONPath-extracted token replayed via <code class="text-flare">${token}</code></li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> inline <code class="text-flare">${js: crypto.uuidv4()}</code></li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> custom metrics with exact-count thresholds</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/yaml/extraction.html">Extraction</a> · <a class="font-semibold text-flare hover:underline" href="/docs/yaml/data.html">Data</a> · <a class="font-semibold text-flare hover:underline" href="/docs/js/overview.html">JavaScript</a></p>
+    </article>
+
+    <!-- 4 -->
+    <article id="ci" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">04</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">Thresholds gate your CI <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:20</span></h2>
+          <p class="mt-1 text-sm text-smoke">What failure looks like — and how it reaches your pipeline and your team.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/04-ci-gate-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/04-ci-gate.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> an SLO the endpoint can't meet</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> red ✗ thresholds, <code class="text-flare">exit=99</code></li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> <code class="text-flare">--summary-export</code> for machines</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> <code class="text-flare">loadr report</code> HTML for humans</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/yaml/thresholds.html">Thresholds</a> · <a class="font-semibold text-flare hover:underline" href="/docs/reference/exit-codes.html">Exit codes</a></p>
+    </article>
+
+    <!-- 5 -->
+    <article id="migrate" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">05</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">Escape JMeter. Import k6. <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:21</span></h2>
+          <p class="mt-1 text-sm text-smoke">Bring your existing test estate with you.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/05-convert-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/05-convert.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> a JMeter <code class="text-flare">.jmx</code> plan → clean YAML</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> warnings name exactly what to review</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> a k6 script with scenarios → same</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> converted output always validates</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/migration/from-jmeter.html">From JMeter</a> · <a class="font-semibold text-flare hover:underline" href="/docs/migration/from-k6.html">From k6</a></p>
+    </article>
+
+    <!-- 6 -->
+    <article id="distributed" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">06</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">A distributed fleet, live <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:34</span></h2>
+          <p class="mt-1 text-sm text-smoke">Controller, agents, exact partitioning and merged percentiles — in 30 seconds.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/06-distributed-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/06-distributed.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> <code class="text-flare">loadr controller</code> + two joining agents</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> fleet health from the API</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> 400 iterations split exactly in two</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> HDR-merged, fleet-wide percentiles</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/distributed/overview.html">Distributed testing</a> · <a class="font-semibold text-flare hover:underline" href="/docs/distributed/metrics-merging.html">Metric aggregation</a></p>
+    </article>
+
+    <!-- 7 -->
+    <article id="webui" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">07</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">The live web UI <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:40</span></h2>
+          <p class="mt-1 text-sm text-smoke">A real browser session during a 30-VU run.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/07-webui-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/07-webui.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> live RPS, VU and percentile charts (SSE)</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> threshold PASS pills updating in real time</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> run page with Stop / Kill / Pause controls</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> test editor, agents view, dark mode native</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/webui.html">The management UI</a></p>
+    </article>
+
+    <div class="rounded-2xl border border-edge bg-panel p-8 text-center">
+      <h2 class="text-2xl font-extrabold text-white">Ready to run it yourself?</h2>
+      <p class="mx-auto mt-2 max-w-xl text-sm text-smoke">Everything in these demos ships in the binary, and the repo includes 15 runnable examples covering every feature shown here — and the ones we didn't fit in.</p>
+      <div class="mt-6 flex flex-wrap justify-center gap-4">
+        <a href="/#install" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Get loadr</a>
+        <a href="/docs/" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer class="border-t border-edge bg-ink py-10">
+  <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 text-xs text-smoke">
+    <div class="flex items-center gap-2">
+      <svg width="16" height="16" viewBox="0 0 32 32"><path d="M18 2 L8 18 L15 18 L13 30 L24 13 L17 13 Z" fill="#ef4444"/></svg>
+      <span class="font-extrabold text-white">loadr<span class="text-ember">.io</span></span>
+      <span class="ml-2">© 2026 loadr. All rights reserved.</span>
+    </div>
+    <div class="flex gap-5">
+      <a class="hover:text-flare" href="/">Home</a>
+      <a class="hover:text-flare" href="/demos/">Demos</a>
+      <a class="hover:text-flare" href="/docs/">Docs</a>
+    </div>
+  </div>
+</footer>
+
+<script src="/assets/site.js" defer></script>
+</body>
+</html>

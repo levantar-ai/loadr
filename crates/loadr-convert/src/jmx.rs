@@ -70,7 +70,8 @@ pub fn convert_jmx(xml: &str) -> Result<Conversion, ConvertError> {
             "HeaderManager" => {
                 let headers = parse_header_manager(node);
                 for (k, v) in headers {
-                    cv.plan.defaults.http.headers.insert(k, cv.rewrite(&v));
+                    let v = cv.rewrite(&v);
+                    cv.plan.defaults.http.headers.insert(k, v);
                 }
             }
             "CookieManager" => cv.convert_cookie_manager(node),
@@ -251,7 +252,7 @@ fn start_node(e: &quick_xml::events::BytesStart<'_>) -> Result<Node, ConvertErro
         let attr = attr.map_err(|e| ConvertError::Xml(e.to_string()))?;
         let key = String::from_utf8_lossy(attr.key.as_ref()).into_owned();
         let value = attr
-            .unescape_value()
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
             .map_err(|e| ConvertError::Xml(e.to_string()))?
             .into_owned();
         attrs.push((key, value));

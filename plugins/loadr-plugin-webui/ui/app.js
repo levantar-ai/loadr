@@ -181,12 +181,12 @@
   // Shared live dashboard (overview + live run detail)
   // -------------------------------------------------------------------------
   const COLORS = {
-    blue: '#4f9cf9',
-    green: '#3fb950',
-    amber: '#d29922',
-    red: '#f85149',
-    purple: '#bc8cff',
-    cyan: '#39c5cf',
+    blue: '#f87171',
+    green: '#4ade80',
+    amber: '#fbbf24',
+    red: '#ef4444',
+    purple: '#fb7185',
+    cyan: '#fca5a5',
   };
 
   function createLiveDash(root) {

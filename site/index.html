@@ -28,10 +28,10 @@
       <a class="hover:text-flare" href="/demos/">Demos</a>
       <a class="hover:text-flare" href="#features">Features</a>
       <a class="hover:text-flare" href="#protocols">Protocols</a>
-      <a class="hover:text-flare" href="#code">Code</a>
       <a class="hover:text-flare" href="#distributed">Distributed</a>
       <a class="hover:text-flare" href="#webui">Web UI</a>
-      <a class="hover:text-flare" href="#compare">vs k6 / JMeter</a>
+      <a class="hover:text-flare" href="#compare">vs k6/JMeter</a>
+      <a class="hover:text-flare" href="#credits">Built on</a>
       <a class="hover:text-flare" href="/docs/">Docs</a>
       <a class="hover:text-flare" href="https://github.com/reaandrew/loadr.io" rel="noopener">GitHub</a>
       <a href="#install" class="glow rounded-lg bg-blood px-4 py-2 font-semibold text-white transition">Download</a>
@@ -184,7 +184,7 @@
         <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Real recordings. Real runs. No mockups.</h2>
         <p class="mt-4 max-w-2xl text-smoke">Every clip is the actual <code class="text-flare">loadr</code> binary executing against a live server.</p>
       </div>
-      <a href="/demos/" class="rounded-xl border border-ember/50 bg-ember/10 px-5 py-2.5 text-sm font-bold text-flare transition hover:bg-ember/20">View all 7 demos →</a>
+      <a href="/demos/" class="rounded-xl border border-ember/50 bg-ember/10 px-5 py-2.5 text-sm font-bold text-flare transition hover:bg-ember/20">View all 9 demos →</a>
     </div>
 
     <div class="mt-10 grid gap-6 lg:grid-cols-3">
@@ -253,7 +253,15 @@
       </a>
       <a href="/docs/yaml/data.html" class="fcard rounded-xl border border-edge bg-panel p-6">
         <h3 class="font-bold text-white">Data-driven testing</h3>
-        <p class="mt-2 text-sm text-smoke">CSV data sets (shared or per-VU cursors, recycle or stop-at-EOF), inline rows, environment variables, and secrets from env/file that never reach logs or reports.</p>
+        <p class="mt-2 text-sm text-smoke">CSV &amp; JSON feeders with sequential, <strong class="text-ash">random</strong> or <strong class="text-ash">shuffle</strong> strategies (shared or per-VU, recycle or stop-at-EOF), inline rows, and secrets that never reach logs.</p>
+      </a>
+      <a href="/docs/yaml/flow-control.html" class="fcard rounded-xl border border-edge bg-panel p-6">
+        <h3 class="font-bold text-white">Flow control &amp; weighted tasks</h3>
+        <p class="mt-2 text-sm text-smoke"><code>repeat</code>, <code>while</code>, <code>if</code>/<code>else</code> and weighted / uniform / round-robin <code>random</code> branches — Gatling's loops and switches and Locust's weighted-task model, in declarative YAML.</p>
+      </a>
+      <a href="/docs/yaml/feeders.html" class="fcard rounded-xl border border-edge bg-panel p-6">
+        <h3 class="font-bold text-white">Throttling</h3>
+        <p class="mt-2 text-sm text-smoke">A global request-rate ceiling (<code>throttle: { requests_per_second }</code>) on top of any executor — Gatling's <code>reachRps</code>, for staying under a known rate limit no matter how fast the target is.</p>
       </a>
       <a href="/docs/js/overview.html" class="fcard rounded-xl border border-edge bg-panel p-6">
         <h3 class="font-bold text-white">Embedded JavaScript</h3>
@@ -645,6 +653,52 @@ $ loadr validate converted.yaml
   </div>
 </section>
 
+<!-- ======================================================= CREDITS -->
+<section id="credits" class="border-t border-edge/60 bg-coal/50 py-24">
+  <div class="mx-auto max-w-6xl px-5">
+    <p class="kicker">Standing on shoulders</p>
+    <h2 class="mt-3 max-w-3xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl">What loadr is built on</h2>
+    <p class="mt-4 max-w-2xl text-smoke">loadr is a fresh Rust implementation — not a fork of anything — but it takes the best ideas from four tools that defined load testing, deliberately and with thanks.</p>
+
+    <div class="mt-12 grid gap-5 md:grid-cols-2">
+      <div class="rounded-2xl border border-edge bg-panel p-7">
+        <div class="flex items-baseline justify-between">
+          <h3 class="text-lg font-bold text-white">k6</h3>
+          <span class="text-xs font-semibold uppercase tracking-wider text-ember">the model</span>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-smoke">The execution model is k6's: the seven executors, open/closed load, the four metric types, thresholds with <code class="text-flare">abortOnFail</code> and exit code 99, checks and groups — and an embedded-JS experience so close the API is import-compatible (<code class="text-flare">import http from 'k6/http'</code>).</p>
+      </div>
+      <div class="rounded-2xl border border-edge bg-panel p-7">
+        <div class="flex items-baseline justify-between">
+          <h3 class="text-lg font-bold text-white">Apache JMeter</h3>
+          <span class="text-xs font-semibold uppercase tracking-wider text-ember">the arsenal</span>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-smoke">JMeter shaped the request toolkit: response / duration / size / JSONPath / XPath assertions; regex, boundary, CSS and XPath extractors; constant / uniform / gaussian and constant-throughput timers; CSV data sets and cookie management. <code class="text-flare">loadr convert</code> reads your <code class="text-flare">.jmx</code> plans.</p>
+      </div>
+      <div class="rounded-2xl border border-edge bg-panel p-7">
+        <div class="flex items-baseline justify-between">
+          <h3 class="text-lg font-bold text-white">Gatling</h3>
+          <span class="text-xs font-semibold uppercase tracking-wider text-ember">the DSL</span>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-smoke">Gatling gave loadr its flow control — <code class="text-flare">repeat</code>, <code class="text-flare">while</code>, <code class="text-flare">if</code>/<code class="text-flare">else</code> and the random / uniform / round-robin <code class="text-flare">switch</code> — plus feeder strategies (sequential / random / shuffle), JSON feeders, and the request-rate <code class="text-flare">throttle</code>.</p>
+      </div>
+      <div class="rounded-2xl border border-edge bg-panel p-7">
+        <div class="flex items-baseline justify-between">
+          <h3 class="text-lg font-bold text-white">Locust</h3>
+          <span class="text-xs font-semibold uppercase tracking-wider text-ember">the behaviour model</span>
+        </div>
+        <p class="mt-3 text-sm leading-relaxed text-smoke">Locust's weighted-task model — users picking <code class="text-flare">@task(weight)</code> actions at random — is exactly loadr's weighted <code class="text-flare">random</code> step. Its clean real-time UI inspired loadr's management UI, and its master/worker model informed the controller/agent design.</p>
+      </div>
+    </div>
+
+    <p class="mt-8 max-w-3xl text-sm leading-relaxed text-smoke">
+      The combination is the point: k6's model <em class="not-italic text-ash">and</em> JMeter's arsenal <em class="not-italic text-ash">and</em> Gatling's DSL <em class="not-italic text-ash">and</em> Locust's behaviour model — in one binary, with correct distributed percentiles, a plugin system and six protocols none of them ship together.
+      <a href="/docs/credits.html" class="font-semibold text-flare hover:underline">Full credits →</a>
+    </p>
+    <p class="mt-4 text-xs text-smoke">Trademarks and project names belong to their respective owners. loadr is independent and not affiliated with or endorsed by k6/Grafana Labs, the Apache Software Foundation, Gatling Corp, or the Locust project.</p>
+  </div>
+</section>
+
 <!-- ======================================================= INSTALL -->
 <section id="install" class="relative overflow-hidden border-t border-edge/60 bg-coal/50 py-24">
   <div class="pointer-events-none absolute -bottom-40 left-1/2 h-80 w-[50rem] -translate-x-1/2 rounded-full bg-blood/15 blur-[120px]"></div>
@@ -738,6 +792,7 @@ $ loadr report results.json -o report.html     # self-contained HTML report</cod
           <li><a class="hover:text-flare" href="/docs/yaml/overview.html">YAML reference</a></li>
           <li><a class="hover:text-flare" href="/docs/js/api.html">JS API</a></li>
           <li><a class="hover:text-flare" href="/docs/plugins/developing.html">Plugin development</a></li>
+          <li><a class="hover:text-flare" href="/docs/credits.html">Credits &amp; influences</a></li>
           <li><a class="hover:text-flare" href="/docs/adr/architecture.html">Architecture &amp; ADRs</a></li>
         </ul>
       </div>

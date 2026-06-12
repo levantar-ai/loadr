@@ -44,7 +44,7 @@
     <p class="kicker">Demos &amp; training</p>
     <h1 class="mt-3 text-4xl font-black tracking-tight text-white sm:text-5xl">Watch loadr work.</h1>
     <p class="mx-auto mt-5 max-w-2xl text-lg text-smoke">
-      Seven short sessions, from your first test to a distributed fleet. Every clip is a real
+      Nine short sessions, from your first test to flow control, feeders and a distributed fleet. Every clip is a real
       recording of the actual binary against a live server — what you see is what you get.
       Follow them in order as a getting-started course, or jump to the feature you need.
     </p>
@@ -193,11 +193,58 @@
     </article>
 
     <!-- 7 -->
-    <article id="webui" class="scroll-mt-24">
+    <!-- 7 -->
+    <article id="flow-control" class="scroll-mt-24">
       <div class="mb-4 flex items-baseline gap-4">
         <span class="text-3xl font-black text-ember">07</span>
         <div>
-          <h2 class="text-2xl font-extrabold text-white">The live web UI <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:40</span></h2>
+          <h2 class="text-2xl font-extrabold text-white">Flow control &amp; weighted tasks <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:23</span></h2>
+          <p class="mt-1 text-sm text-smoke">Loops, conditionals and weighted branches — Gatling's DSL and Locust's task model in YAML.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/08-flow-control-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/08-flow-control.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> <code class="text-flare">while</code> loop: browse a random number of pages</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> weighted <code class="text-flare">random</code>: 70% browse / 25% cart / 5% checkout</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> <code class="text-flare">repeat</code> and <code class="text-flare">if</code>/<code class="text-flare">else</code> for retries</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> realistic user journeys, no scripting required</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/yaml/flow-control.html">Flow control</a></p>
+    </article>
+
+    <!-- 8 -->
+    <article id="feeders" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">08</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">Feeders &amp; throttling <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:21</span></h2>
+          <p class="mt-1 text-sm text-smoke">Random data feeders and a hard request-rate ceiling — Gatling's feeders and <code>reachRps</code>.</p>
+        </div>
+      </div>
+      <div class="overflow-hidden rounded-2xl border border-edge bg-panel">
+        <video controls preload="none" poster="/videos/09-feeders-throttle-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/09-feeders-throttle.mp4" type="video/mp4">
+        </video>
+      </div>
+      <ul class="mt-4 grid gap-1.5 text-sm text-smoke sm:grid-cols-2">
+        <li class="flex gap-2"><span class="text-ember">▸</span> a <code class="text-flare">random</code> feeder picking SKUs</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> 20 VUs, but <code class="text-flare">throttle</code> caps the scenario at 30 req/s</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> the observed rate holds at the ceiling</li>
+        <li class="flex gap-2"><span class="text-ember">▸</span> stay under a known rate limit, on any executor</li>
+      </ul>
+      <p class="mt-3 text-sm text-smoke">Docs: <a class="font-semibold text-flare hover:underline" href="/docs/yaml/feeders.html">Feeders &amp; throttling</a></p>
+    </article>
+
+    <!-- 9 -->
+    <article id="webui" class="scroll-mt-24">
+      <div class="mb-4 flex items-baseline gap-4">
+        <span class="text-3xl font-black text-ember">09</span>
+        <div>
+          <h2 class="text-2xl font-extrabold text-white">The live web UI <span class="ml-2 align-middle rounded-full border border-ember/40 bg-ember/10 px-2.5 py-0.5 text-xs font-bold text-flare">0:42</span></h2>
           <p class="mt-1 text-sm text-smoke">A real browser session during a 30-VU run.</p>
         </div>
       </div>

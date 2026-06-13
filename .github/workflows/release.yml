@@ -47,6 +47,7 @@ jobs:
           mkdir "$name"
           cp "target/${{ matrix.target }}/release/loadr" "$name/"
           cp README.md LICENSE "$name/" || true
+          cp -r examples "$name/"
           tar czf "$name.tar.gz" "$name"
       - name: Package (windows)
         if: matrix.archive == 'zip'
@@ -56,6 +57,7 @@ jobs:
           New-Item -ItemType Directory -Path $name | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/loadr.exe" $name/
           Copy-Item README.md $name/ -ErrorAction SilentlyContinue
+          Copy-Item examples $name/ -Recurse
           Compress-Archive -Path $name -DestinationPath "$name.zip"
       - uses: softprops/action-gh-release@v2
         with:

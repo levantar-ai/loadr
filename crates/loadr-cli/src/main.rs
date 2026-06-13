@@ -100,7 +100,9 @@ fn run(cli: Cli) -> anyhow::Result<i32> {
         }
         Command::Version => {
             println!("loadr {}", env!("CARGO_PKG_VERSION"));
-            println!("  protocols: http/1.1, http/2, websocket, grpc, graphql, tcp, udp");
+            println!(
+                "  protocols: http/1.1, http/2, websocket, sse, grpc, graphql, redis, tcp, udp, browser"
+            );
             println!("  js engine: QuickJS (rquickjs)");
             println!("  arch: {}", std::env::consts::ARCH);
             Ok(0)

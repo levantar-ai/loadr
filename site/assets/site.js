@@ -31,7 +31,9 @@
     bash: [
       [/(^|\n)(\s*#[^\n]*)/g, function (m, a, b) { return a + span("tok-c", b); }],
       [/(^|\n)(\$)(\s)/g, function (m, a, d, sp) { return a + span("tok-red", d) + sp; }],
-      [/(--?[a-z][\w-]*)/g, function (m) { return span("tok-f", m); }],
+      // Flags must start at a word boundary (space / line-start / paren) so the
+      // rule can't match the "-red" inside an already-inserted tok-red sentinel.
+      [/(^|[\s(])(--?[a-z][\w-]*)/g, function (m, pre, flag) { return pre + span("tok-f", flag); }],
       [/\b(loadr|cargo|docker|helm|kubectl|curl|tar)\b/g, function (m) { return span("tok-k", m); }],
     ],
     console: [

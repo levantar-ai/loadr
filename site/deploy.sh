@@ -23,6 +23,14 @@ mkdir -p "$DIST/demos"
 cp "$ROOT/site/demos.html" "$DIST/demos/index.html"
 cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/consent.js" "$ROOT/site/assets/favicon.svg" "$DIST/assets/"
 cp -r "$ROOT/docs/book/." "$DIST/docs/"
+
+# Examples: browsable raw files + a download bundle + a generated index page.
+echo "==> bundling examples"
+mkdir -p "$DIST/examples"
+cp -r "$ROOT/examples/." "$DIST/examples/"
+tar czf "$DIST/examples.tar.gz" -C "$ROOT" examples
+python3 "$ROOT/site/build-examples-index.py" "$ROOT/examples" "$DIST/examples/index.html"
+
 if [ -d "$ROOT/site/videos/out" ]; then
   mkdir -p "$DIST/videos"
   cp "$ROOT/site/videos/out/"*.mp4 "$ROOT/site/videos/out/"*.jpg "$DIST/videos/" 2>/dev/null || true

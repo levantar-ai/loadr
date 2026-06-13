@@ -57,8 +57,16 @@
       this.window = opts.window || 180; // points kept per series
       this.format = opts.format || defaultFormat;
       this.min0 = opts.min0 !== false;
+      // Render style: 'line', 'area' (line + fill) or 'bars'.
+      this.type = opts.type || 'line';
       this._onResize = () => this.draw();
       window.addEventListener('resize', this._onResize);
+      this.draw();
+    }
+
+    /** Switch render style ('line' | 'area' | 'bars') and redraw. */
+    setType(type) {
+      this.type = type;
       this.draw();
     }
 
@@ -169,42 +177,64 @@
       }
 
       // Series.
-      for (const s of this.series) {
-        if (!s.points.length) continue;
-        ctx.lineWidth = 1.8;
-        ctx.strokeStyle = s.color;
-        ctx.lineJoin = 'round';
-        let started = false;
-        ctx.beginPath();
-        for (const [t, v] of s.points) {
-          if (v == null) {
-            started = false;
-            continue;
-          }
-          const px = x(t);
-          const py = y(v);
-          if (!started) {
-            ctx.moveTo(px, py);
-            started = true;
-          } else {
-            ctx.lineTo(px, py);
+      const baseY = padT + h;
+      if (this.type === 'bars') {
+        // Vertical bars per data point. Width derived from the time window so
+        // bars stay a consistent thickness as points stream in. With multiple
+        // series we draw translucent overlaid bars so each stays visible.
+        const slot = w / this.window;
+        const barW = Math.max(1.5, slot * 0.78);
+        const multi = this.series.length > 1;
+        for (const s of this.series) {
+          if (!s.points.length) continue;
+          ctx.fillStyle = s.color;
+          ctx.globalAlpha = multi ? 0.5 : 0.82;
+          for (const [t, v] of s.points) {
+            if (v == null) continue;
+            const py = y(v);
+            ctx.fillRect(x(t) - barW / 2, py, barW, Math.max(0.5, baseY - py));
           }
         }
-        ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else {
+        for (const s of this.series) {
+          if (!s.points.length) continue;
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = s.color;
+          ctx.lineJoin = 'round';
+          let started = false;
+          ctx.beginPath();
+          for (const [t, v] of s.points) {
+            if (v == null) {
+              started = false;
+              continue;
+            }
+            const px = x(t);
+            const py = y(v);
+            if (!started) {
+              ctx.moveTo(px, py);
+              started = true;
+            } else {
+              ctx.lineTo(px, py);
+            }
+          }
+          ctx.stroke();
 
-        if (s.fill) {
-          const pts = s.points.filter((p) => p[1] != null);
-          if (pts.length > 1) {
-            ctx.beginPath();
-            ctx.moveTo(x(pts[0][0]), y(pts[0][1]));
-            for (const [t, v] of pts) ctx.lineTo(x(t), y(v));
-            ctx.lineTo(x(pts[pts.length - 1][0]), padT + h);
-            ctx.lineTo(x(pts[0][0]), padT + h);
-            ctx.closePath();
-            ctx.globalAlpha = 0.12;
-            ctx.fillStyle = s.color;
-            ctx.fill();
-            ctx.globalAlpha = 1;
+          // 'area' fills every series; 'line' only fills series opting in.
+          if (this.type === 'area' || s.fill) {
+            const pts = s.points.filter((p) => p[1] != null);
+            if (pts.length > 1) {
+              ctx.beginPath();
+              ctx.moveTo(x(pts[0][0]), y(pts[0][1]));
+              for (const [t, v] of pts) ctx.lineTo(x(t), y(v));
+              ctx.lineTo(x(pts[pts.length - 1][0]), baseY);
+              ctx.lineTo(x(pts[0][0]), baseY);
+              ctx.closePath();
+              ctx.globalAlpha = this.type === 'area' ? 0.16 : 0.12;
+              ctx.fillStyle = s.color;
+              ctx.fill();
+              ctx.globalAlpha = 1;
+            }
           }
         }
       }

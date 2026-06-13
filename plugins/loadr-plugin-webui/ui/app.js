@@ -214,6 +214,33 @@
     const rpsCanvas = h('canvas', { class: 'chart' });
     const latCanvas = h('canvas', { class: 'chart' });
     const errCanvas = h('canvas', { class: 'chart chart-short' });
+
+    // Chart-style chooser (line / area / bars), persisted across sessions.
+    const CHART_TYPES = [
+      ['line', 'Line'],
+      ['area', 'Area'],
+      ['bars', 'Bars'],
+    ];
+    let chartType = localStorage.getItem('loadr.chartType') || 'line';
+    if (!CHART_TYPES.some(([v]) => v === chartType)) chartType = 'line';
+    const typeButtons = CHART_TYPES.map(([val, label]) =>
+      h(
+        'button',
+        {
+          class: 'seg-btn' + (val === chartType ? ' active' : ''),
+          type: 'button',
+          'data-type': val,
+        },
+        label
+      )
+    );
+    const chartToolbar = h(
+      'div',
+      { class: 'chart-toolbar' },
+      h('span', { class: 'chart-toolbar-label muted' }, 'Chart style'),
+      h('div', { class: 'seg' }, ...typeButtons)
+    );
+
     const checksBar = h('div', { class: 'checks-bar-fill' });
     const checksText = h('span', { class: 'mono muted' }, 'no checks yet');
     const scenarioBody = h('tbody');
@@ -222,6 +249,7 @@
 
     root.append(
       cardRow,
+      chartToolbar,
       h(
         'div',
         { class: 'chart-grid' },
@@ -270,6 +298,7 @@
 
     const rpsChart = new TimeChart(rpsCanvas, {
       series: [{ label: 'req/s', color: COLORS.blue, fill: true }],
+      type: chartType,
     });
     const latChart = new TimeChart(latCanvas, {
       series: [
@@ -279,11 +308,28 @@
         { label: 'p99', color: COLORS.red },
       ],
       format: (v) => fmt.ms(v),
+      type: chartType,
     });
     const errChart = new TimeChart(errCanvas, {
       series: [{ label: 'error %', color: COLORS.red, fill: true }],
       format: (v) => v.toFixed(1) + '%',
+      type: chartType,
     });
+
+    // Apply a chart style to every chart, persist it, and reflect the active button.
+    function applyChartType(t) {
+      chartType = t;
+      try {
+        localStorage.setItem('loadr.chartType', t);
+      } catch (_) {
+        /* private mode / storage disabled — non-fatal */
+      }
+      [rpsChart, latChart, errChart].forEach((c) => c.setType(t));
+      typeButtons.forEach((b) => b.classList.toggle('active', b.getAttribute('data-type') === t));
+    }
+    typeButtons.forEach((b) =>
+      b.addEventListener('click', () => applyChartType(b.getAttribute('data-type')))
+    );
 
     function update(m) {
       if (!m) return;

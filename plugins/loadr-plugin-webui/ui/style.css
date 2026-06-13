@@ -246,6 +246,53 @@ canvas.chart-short {
   height: 160px;
 }
 
+/* Chart-style chooser (line / area / bars) --------------------------------- */
+.chart-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin: 4px 2px 2px;
+}
+.chart-toolbar-label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--panel);
+}
+.seg-btn {
+  appearance: none;
+  border: 0;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.seg-btn:first-child {
+  border-left: 0;
+}
+.seg-btn:hover {
+  color: var(--text);
+  background: var(--panel-2);
+}
+.seg-btn.active {
+  color: #fff;
+  background: var(--accent);
+}
+:root[data-theme='light'] .seg-btn.active {
+  color: #fff;
+}
+
 /* Pills / banners ----------------------------------------------------------- */
 .pill {
   display: inline-block;

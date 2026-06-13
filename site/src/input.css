@@ -113,6 +113,14 @@ body {
   border-color: rgb(239 68 68 / 0.5);
 }
 
+/* Grid items default to min-width:auto, so a wide child (a non-wrapping <pre>
+   code block) forces its track — and the whole page — wider than the viewport
+   on mobile. Letting grid items shrink makes the code blocks scroll inside
+   their own box instead of widening the page. */
+.grid > * {
+  min-width: 0;
+}
+
 /* Subtle grid background for hero.
    The grid + fade mask live on a ::before layer so the mask only affects the
    decorative grid — NOT the hero text/terminal (mask-image masks an element's

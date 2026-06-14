@@ -21,6 +21,8 @@ mkdir -p "$DIST/assets" "$DIST/docs"
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$DIST/"
 mkdir -p "$DIST/demos"
 cp "$ROOT/site/demos.html" "$DIST/demos/index.html"
+mkdir -p "$DIST/download"
+cp "$ROOT/site/downloads.html" "$DIST/download/index.html"
 cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/consent.js" "$ROOT/site/assets/favicon.svg" "$DIST/assets/"
 cp -r "$ROOT/docs/book/." "$DIST/docs/"
 

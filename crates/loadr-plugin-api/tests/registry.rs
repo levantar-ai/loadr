@@ -26,7 +26,7 @@ fn assemble_plugins_dir(dir: &Path) {
 
     let so = common::build_native_example(
         "loadr-plugin-example-native-protocol",
-        "libnative_protocol.so",
+        "native_protocol",
     );
     let proto_dir = dir.join("echo-proto");
     std::fs::create_dir_all(&proto_dir).expect("mkdir");
@@ -130,7 +130,7 @@ fn load_ref_by_explicit_path() {
     // A bare .so path (no manifest next to it): kind comes from info().
     let so = common::build_native_example(
         "loadr-plugin-example-native-protocol",
-        "libnative_protocol.so",
+        "native_protocol",
     );
     let mut pref = plugin_ref("echo-proto", serde_json::Value::Null);
     pref.path = Some(so);

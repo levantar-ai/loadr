@@ -15,14 +15,11 @@ use loadr_core::{
 use loadr_plugin_api::NativePlugin;
 
 fn output_so() -> std::path::PathBuf {
-    common::build_native_example("loadr-plugin-example-native-output", "libnative_output.so")
+    common::build_native_example("loadr-plugin-example-native-output", "native_output")
 }
 
 fn protocol_so() -> std::path::PathBuf {
-    common::build_native_example(
-        "loadr-plugin-example-native-protocol",
-        "libnative_protocol.so",
-    )
+    common::build_native_example("loadr-plugin-example-native-protocol", "native_protocol")
 }
 
 fn sample(metric: &str, kind: MetricKind, value: f64) -> Sample {

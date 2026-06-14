@@ -52,8 +52,28 @@ pub fn build_wasm_guest(dir_name: &str, artifact: &str) -> PathBuf {
     path
 }
 
-/// Build a native example plugin (workspace member) and return the .so path.
-pub fn build_native_example(package: &str, lib_file: &str) -> PathBuf {
+/// Platform-correct cdylib artifact filename for a `[lib] name = "<stem>"`.
+/// cargo emits `lib<stem>.so` on Linux, `lib<stem>.dylib` on macOS and
+/// `<stem>.dll` on Windows.
+pub fn dylib_name(stem: &str) -> String {
+    #[cfg(target_os = "windows")]
+    {
+        format!("{stem}.dll")
+    }
+    #[cfg(target_os = "macos")]
+    {
+        format!("lib{stem}.dylib")
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        format!("lib{stem}.so")
+    }
+}
+
+/// Build a native example plugin (workspace member) and return the path to its
+/// dynamic-library artifact. `lib_stem` is the crate's `[lib] name`; the file
+/// extension is resolved per platform.
+pub fn build_native_example(package: &str, lib_stem: &str) -> PathBuf {
     let root = workspace_root();
     let mut cmd = cargo();
     cmd.args(["build", "-p", package]).current_dir(&root);
@@ -61,7 +81,7 @@ pub fn build_native_example(package: &str, lib_file: &str) -> PathBuf {
     let target = std::env::var_os("CARGO_TARGET_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| root.join("target"));
-    let path = target.join("debug").join(lib_file);
+    let path = target.join("debug").join(dylib_name(lib_stem));
     assert!(
         path.is_file(),
         "missing native artifact at {}",

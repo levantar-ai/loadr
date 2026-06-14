@@ -7,7 +7,7 @@
 [![CI](https://github.com/levantar-ai/loadr/actions/workflows/ci.yml/badge.svg)](https://github.com/levantar-ai/loadr/actions/workflows/ci.yml)
 [![Release](https://github.com/levantar-ai/loadr/actions/workflows/release.yml/badge.svg)](https://github.com/levantar-ai/loadr/releases/latest)
 [![Docs](https://img.shields.io/badge/docs-loadr.io-dc2626)](https://loadr.io/docs/)
-[![License](https://img.shields.io/badge/license-proprietary-07070a)](LICENSE)
+[![License](https://img.shields.io/badge/license-Elastic--2.0-07070a)](LICENSE)
 
 *Declarative YAML tests · embedded JavaScript · 6 protocols · WASM & native plugins · distributed agents · live web UI*
 
@@ -190,5 +190,7 @@ mdbook serve docs                                   # docs at localhost:3000
 
 ## License
 
-Proprietary. Copyright © 2026 Andrew Rea. All rights reserved.
-See [LICENSE](LICENSE) for terms.
+[Elastic License 2.0](LICENSE) — source-available. You may use, copy, modify and
+redistribute loadr, **but you may not offer it to third parties as a hosted or
+managed service** that exposes a substantial set of its functionality.
+Copyright © 2026 Levantar / Andrew Rea.

@@ -1971,7 +1971,7 @@ checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
 
 [[package]]
 name = "loadr-agent"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "futures",
@@ -1996,7 +1996,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-browser"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2017,7 +2017,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-cli"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2057,7 +2057,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-config"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "humantime",
  "indexmap",
@@ -2077,7 +2077,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-convert"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "indexmap",
  "loadr-config",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -2124,7 +2124,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-js"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "base64 0.22.1",
  "hmac",
@@ -2145,7 +2145,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-outputs"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -2177,7 +2177,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-plugin-api"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "abi_stable",
  "async-trait",
@@ -2200,7 +2200,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-plugin-example-native-output"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "abi_stable",
  "loadr-plugin-api",
@@ -2210,7 +2210,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-plugin-example-native-protocol"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "abi_stable",
  "base64 0.22.1",
@@ -2221,7 +2221,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-plugin-webui"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "axum",
@@ -2250,7 +2250,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-protocols"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "brotli",
@@ -2288,7 +2288,7 @@ dependencies = [
 
 [[package]]
 name = "loadr-testserver"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "axum",

@@ -18,7 +18,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 license-file = "LICENSE"
 repository = "https://loadr.io"
@@ -26,16 +26,19 @@ homepage = "https://loadr.io"
 rust-version = "1.85"
 
 [workspace.dependencies]
-loadr-core = { path = "crates/loadr-core" }
-loadr-config = { path = "crates/loadr-config" }
-loadr-js = { path = "crates/loadr-js" }
-loadr-protocols = { path = "crates/loadr-protocols" }
-loadr-outputs = { path = "crates/loadr-outputs" }
-loadr-plugin-api = { path = "crates/loadr-plugin-api" }
-loadr-agent = { path = "crates/loadr-agent" }
-loadr-convert = { path = "crates/loadr-convert" }
-loadr-browser = { path = "crates/loadr-browser" }
-loadr-plugin-webui = { path = "plugins/loadr-plugin-webui" }
+# Internal crates carry an explicit version so they can be published to
+# crates.io (path-only deps are rejected by the registry). loadr-testserver
+# stays path-only — it is publish=false and used only as a dev-dependency.
+loadr-core = { path = "crates/loadr-core", version = "1.0.0" }
+loadr-config = { path = "crates/loadr-config", version = "1.0.0" }
+loadr-js = { path = "crates/loadr-js", version = "1.0.0" }
+loadr-protocols = { path = "crates/loadr-protocols", version = "1.0.0" }
+loadr-outputs = { path = "crates/loadr-outputs", version = "1.0.0" }
+loadr-plugin-api = { path = "crates/loadr-plugin-api", version = "1.0.0" }
+loadr-agent = { path = "crates/loadr-agent", version = "1.0.0" }
+loadr-convert = { path = "crates/loadr-convert", version = "1.0.0" }
+loadr-browser = { path = "crates/loadr-browser", version = "1.0.0" }
+loadr-plugin-webui = { path = "plugins/loadr-plugin-webui", version = "1.0.0" }
 loadr-testserver = { path = "testsupport/loadr-testserver" }
 
 tokio = { version = "1.52", features = ["full"] }

@@ -1,5 +1,5 @@
-//! `loadr-plugin-sql` — a native protocol plugin that adds PostgreSQL and
-//! MySQL as loadr load-test targets.
+//! `loadr-plugin-postgres` — a native protocol plugin that adds PostgreSQL as a
+//! loadr load-test target.
 //!
 //! # How it plugs in
 //!
@@ -12,20 +12,22 @@
 //! * A single multi-thread Tokio runtime, created once, on which every call
 //!   `block_on`s the async `sqlx` driver.
 //! * An internal connection pool keyed by the database connection URI
-//!   (`OnceCell<Mutex<HashMap<String, sqlx::Pool>>>`), so a `Pool` (itself a
+//!   (`OnceCell<Mutex<HashMap<String, sqlx::PgPool>>>`), so a `Pool` (itself a
 //!   set of pooled, cheaply-cloneable connections) is created once per distinct
 //!   URI and reused across every call and VU.
 //!
-//! The heavy `sqlx` driver — and its transitive `rsa` dependency
-//! (RUSTSEC-2023-0071) — therefore live only inside this plugin's dynamic
-//! library, never in the loadr core binary.
+//! The heavy `sqlx` driver lives only inside this plugin's dynamic library,
+//! never in the loadr core binary. This crate enables ONLY the `postgres`
+//! `sqlx` feature, so it never pulls in `sqlx-mysql` (and thus not its
+//! transitive `rsa` dependency / RUSTSEC-2023-0071) — a PostgreSQL-only build
+//! is fully advisory-clean. MySQL lives in the separate `loadr-plugin-mysql`.
 //!
 //! # Request / response contract
 //!
 //! The host hands the plugin a JSON [`loadr_plugin_api::FfiRequest`]. We read
-//! the connection URI from `url` (its scheme selects PostgreSQL vs MySQL) and
-//! the query from `options.plugin` (populated from the YAML request's `sql:`
-//! block, with `${...}` already interpolated by the host):
+//! the connection URI from `url` and the query from `options.plugin` (populated
+//! from the YAML request's `sql:` block, with `${...}` already interpolated by
+//! the host):
 //!
 //! ```jsonc
 //! {
@@ -34,10 +36,10 @@
 //! }
 //! ```
 //!
-//! The response is JSON `{ ok, latency_ms, rows, backend, error }` where `rows`
-//! is the number of rows returned (SELECT/…) or affected (INSERT/UPDATE/DELETE).
-//! The host turns this into `sql_reqs` / `sql_req_duration` / `sql_rows`
-//! metrics (it reads the `extras.rows` field back).
+//! The response is JSON `{ ok, latency_ms, rows, error }` where `rows` is the
+//! number of rows returned (SELECT/…) or affected (INSERT/UPDATE/DELETE). The
+//! host turns this into `postgres_reqs` / `postgres_req_duration` /
+//! `postgres_rows` metrics (it reads the `extras.rows` field back).
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -48,9 +50,8 @@ use abi_stable::std_types::{
     RString,
 };
 use once_cell::sync::OnceCell;
-use sqlx::mysql::MySqlPoolOptions;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{MySqlPool, PgPool};
+use sqlx::PgPool;
 use tokio::runtime::Runtime;
 use url::Url;
 
@@ -59,7 +60,7 @@ use loadr_plugin_api::abi::{
 };
 use loadr_plugin_api::{FfiRequest, FfiResponse};
 
-const NAME: &str = "sql";
+const NAME: &str = "postgres";
 
 /// The single Tokio runtime the plugin uses to drive the async driver.
 fn runtime() -> &'static Runtime {
@@ -68,7 +69,7 @@ fn runtime() -> &'static Runtime {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
-            .expect("build sql plugin tokio runtime")
+            .expect("build postgres plugin tokio runtime")
     })
 }
 
@@ -80,40 +81,13 @@ fn pg_pools() -> &'static Mutex<HashMap<String, PgPool>> {
     POOLS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn my_pools() -> &'static Mutex<HashMap<String, MySqlPool>> {
-    static POOLS: OnceCell<Mutex<HashMap<String, MySqlPool>>> = OnceCell::new();
-    POOLS.get_or_init(|| Mutex::new(HashMap::new()))
-}
-
-/// Which SQL backend a URL scheme targets.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Backend {
-    Postgres,
-    MySql,
-}
-
-impl Backend {
-    fn from_scheme(scheme: &str) -> Option<Backend> {
-        match scheme {
-            "postgres" | "postgresql" => Some(Backend::Postgres),
-            "mysql" => Some(Backend::MySql),
-            _ => None,
-        }
-    }
-
-    fn name(self) -> &'static str {
-        match self {
-            Backend::Postgres => "postgres",
-            Backend::MySql => "mysql",
-        }
-    }
-}
-
-/// Validate the URL scheme and return the backend it targets.
-fn parse_backend(raw: &str) -> Result<Backend, String> {
+/// Validate the URL scheme — only `postgres`/`postgresql` are served here.
+fn check_scheme(raw: &str) -> Result<(), String> {
     let url = Url::parse(raw).map_err(|e| format!("invalid url `{raw}`: {e}"))?;
-    Backend::from_scheme(url.scheme())
-        .ok_or_else(|| format!("sql plugin cannot handle scheme `{}`", url.scheme()))
+    match url.scheme() {
+        "postgres" | "postgresql" => Ok(()),
+        other => Err(format!("postgres plugin cannot handle scheme `{other}`")),
+    }
 }
 
 /// The resolved query for one request.
@@ -243,19 +217,6 @@ fn bind_pg<'q>(
     }
 }
 
-fn bind_my<'q>(
-    query: sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments>,
-    p: &'q str,
-) -> sqlx::query::Query<'q, sqlx::MySql, sqlx::mysql::MySqlArguments> {
-    if let Ok(i) = p.parse::<i64>() {
-        query.bind(i)
-    } else if let Ok(f) = p.parse::<f64>() {
-        query.bind(f)
-    } else {
-        query.bind(p)
-    }
-}
-
 /// Get (or lazily create + cache) the postgres pool for `uri`.
 async fn pg_pool_for(uri: &str) -> Result<PgPool, sqlx::Error> {
     if let Some(p) = pg_pools().lock().expect("pg pool lock").get(uri).cloned() {
@@ -266,82 +227,37 @@ async fn pg_pool_for(uri: &str) -> Result<PgPool, sqlx::Error> {
     Ok(guard.entry(uri.to_string()).or_insert(pool).clone())
 }
 
-/// Get (or lazily create + cache) the mysql pool for `uri`.
-async fn my_pool_for(uri: &str) -> Result<MySqlPool, sqlx::Error> {
-    if let Some(p) = my_pools().lock().expect("my pool lock").get(uri).cloned() {
-        return Ok(p);
+/// Run the query against PostgreSQL. Returns the number of rows returned by a
+/// row-producing statement, or rows affected by a DML statement.
+async fn run_query(uri: &str, q: &SqlQuery) -> Result<u64, String> {
+    let pool = pg_pool_for(uri)
+        .await
+        .map_err(|e| format!("connect failed: {e}"))?;
+    let mut query = sqlx::query(&q.query);
+    for p in &q.params {
+        query = bind_pg(query, p);
     }
-    let pool = MySqlPoolOptions::new()
-        .max_connections(8)
-        .connect(uri)
-        .await?;
-    let mut guard = my_pools().lock().expect("my pool lock");
-    Ok(guard.entry(uri.to_string()).or_insert(pool).clone())
-}
-
-/// Run the query against the chosen backend. Returns the number of rows
-/// returned by a row-producing statement, or rows affected by a DML statement.
-async fn run_query(backend: Backend, uri: &str, q: &SqlQuery) -> Result<u64, String> {
-    match backend {
-        Backend::Postgres => {
-            let pool = pg_pool_for(uri)
-                .await
-                .map_err(|e| format!("connect failed: {e}"))?;
-            let mut query = sqlx::query(&q.query);
-            for p in &q.params {
-                query = bind_pg(query, p);
-            }
-            if returns_rows(&q.query) {
-                Ok(query
-                    .fetch_all(&pool)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .len() as u64)
-            } else {
-                Ok(query
-                    .execute(&pool)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .rows_affected())
-            }
-        }
-        Backend::MySql => {
-            let pool = my_pool_for(uri)
-                .await
-                .map_err(|e| format!("connect failed: {e}"))?;
-            let mut query = sqlx::query(&q.query);
-            for p in &q.params {
-                query = bind_my(query, p);
-            }
-            if returns_rows(&q.query) {
-                Ok(query
-                    .fetch_all(&pool)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .len() as u64)
-            } else {
-                Ok(query
-                    .execute(&pool)
-                    .await
-                    .map_err(|e| e.to_string())?
-                    .rows_affected())
-            }
-        }
+    if returns_rows(&q.query) {
+        Ok(query
+            .fetch_all(&pool)
+            .await
+            .map_err(|e| e.to_string())?
+            .len() as u64)
+    } else {
+        Ok(query
+            .execute(&pool)
+            .await
+            .map_err(|e| e.to_string())?
+            .rows_affected())
     }
 }
 
-struct SqlProto;
+struct PostgresProto;
 
 /// Build the JSON `FfiResponse` the host expects. `extras.rows` drives the
-/// `sql_rows` counter and `error` the request-failed rate.
-fn response(
-    rows: u64,
-    backend: Option<Backend>,
-    latency_ms: f64,
-    error: Option<String>,
-) -> FfiResponse {
+/// `postgres_rows` counter and `error` the request-failed rate.
+fn response(rows: u64, latency_ms: f64, error: Option<String>) -> FfiResponse {
     let ok = error.is_none();
-    let backend_name = backend.map(|b| b.name()).unwrap_or("");
     FfiResponse {
         status: i64::from(ok),
         status_text: if ok { "OK" } else { "ERROR" }.to_string(),
@@ -355,7 +271,7 @@ fn response(
             "ok": ok,
             "latency_ms": latency_ms,
             "rows": rows,
-            "backend": backend_name,
+            "backend": "postgres",
         }),
     }
 }
@@ -395,35 +311,34 @@ fn handle(request_json: &str) -> FfiResponse {
     let started = Instant::now();
     let request: FfiRequest = match serde_json::from_str(request_json) {
         Ok(r) => r,
-        Err(e) => return response(0, None, 0.0, Some(format!("invalid request JSON: {e}"))),
+        Err(e) => return response(0, 0.0, Some(format!("invalid request JSON: {e}"))),
     };
-    let backend = match parse_backend(&request.url) {
-        Ok(b) => b,
-        Err(e) => return response(0, None, elapsed_ms(started), Some(e)),
-    };
+    if let Err(e) = check_scheme(&request.url) {
+        return response(0, elapsed_ms(started), Some(e));
+    }
     let q = match SqlQuery::from_request(&request) {
         Ok(q) => q,
-        Err(e) => return response(0, Some(backend), elapsed_ms(started), Some(e)),
+        Err(e) => return response(0, elapsed_ms(started), Some(e)),
     };
     let exec = async {
         if request.timeout_ms == 0 {
-            run_query(backend, &request.url, &q).await
+            run_query(&request.url, &q).await
         } else {
             tokio::time::timeout(
                 std::time::Duration::from_millis(request.timeout_ms),
-                run_query(backend, &request.url, &q),
+                run_query(&request.url, &q),
             )
             .await
             .unwrap_or_else(|_| Err(format!("query timed out after {}ms", request.timeout_ms)))
         }
     };
     match runtime().block_on(exec) {
-        Ok(rows) => response(rows, Some(backend), elapsed_ms(started), None),
-        Err(e) => response(0, Some(backend), elapsed_ms(started), Some(e)),
+        Ok(rows) => response(rows, elapsed_ms(started), None),
+        Err(e) => response(0, elapsed_ms(started), Some(e)),
     }
 }
 
-impl FfiProtocol for SqlProto {
+impl FfiProtocol for PostgresProto {
     fn name(&self) -> RString {
         RString::from(NAME)
     }
@@ -445,15 +360,15 @@ extern "C" fn plugin_info() -> RString {
             "name": NAME,
             "version": env!("CARGO_PKG_VERSION"),
             "kind": "protocol",
-            "description": "SQL protocol: PostgreSQL and MySQL queries via sqlx",
-            "schemes": ["postgres", "postgresql", "mysql", "sql"],
+            "description": "PostgreSQL protocol: queries via sqlx",
+            "schemes": ["postgres", "postgresql"],
         })
         .to_string(),
     )
 }
 
 extern "C" fn make_protocol() -> FfiProtocolBox {
-    FfiProtocol_TO::from_value(SqlProto, abi_stable::erased_types::TD_Opaque)
+    FfiProtocol_TO::from_value(PostgresProto, abi_stable::erased_types::TD_Opaque)
 }
 
 loadr_plugin_api::export_loadr_plugin! {
@@ -484,26 +399,12 @@ mod tests {
     }
 
     #[test]
-    fn parses_backends() {
-        assert_eq!(
-            parse_backend("postgres://u:p@h:5432/db").unwrap(),
-            Backend::Postgres
-        );
-        assert_eq!(
-            parse_backend("postgresql://h/db").unwrap(),
-            Backend::Postgres
-        );
-        assert_eq!(parse_backend("mysql://h:3306/db").unwrap(), Backend::MySql);
-        assert!(parse_backend("http://h/db").is_err());
-        assert!(parse_backend("not a url").is_err());
-    }
-
-    #[test]
-    fn backend_name_roundtrip() {
-        assert_eq!(Backend::Postgres.name(), "postgres");
-        assert_eq!(Backend::MySql.name(), "mysql");
-        assert_eq!(Backend::from_scheme("mysql"), Some(Backend::MySql));
-        assert_eq!(Backend::from_scheme("oracle"), None);
+    fn accepts_postgres_schemes() {
+        assert!(check_scheme("postgres://u:p@h:5432/db").is_ok());
+        assert!(check_scheme("postgresql://h/db").is_ok());
+        assert!(check_scheme("mysql://h:3306/db").is_err());
+        assert!(check_scheme("http://h/db").is_err());
+        assert!(check_scheme("not a url").is_err());
     }
 
     #[test]
@@ -525,7 +426,7 @@ mod tests {
 
     #[test]
     fn query_from_body_fallback() {
-        let mut r = req("mysql://h/db", None);
+        let mut r = req("postgres://h/db", None);
         r.body_b64 = base64_encode(b"  SELECT 1  ");
         let q = SqlQuery::from_request(&r).unwrap();
         assert_eq!(q.query, "SELECT 1");
@@ -571,7 +472,7 @@ mod tests {
 
     #[test]
     fn handle_bad_scheme_is_error_response() {
-        let json = serde_json::to_string(&req("http://h/db", None)).unwrap();
+        let json = serde_json::to_string(&req("mysql://h/db", None)).unwrap();
         let resp = handle(&json);
         assert_eq!(resp.status, 0);
         assert!(resp.error.is_some());
@@ -579,7 +480,7 @@ mod tests {
 
     #[test]
     fn response_shape_ok() {
-        let resp = response(3, Some(Backend::Postgres), 1.5, None);
+        let resp = response(3, 1.5, None);
         assert_eq!(resp.status, 1);
         assert_eq!(resp.extras["rows"], 3);
         assert_eq!(resp.extras["backend"], "postgres");
@@ -592,17 +493,16 @@ mod tests {
         let info = plugin_info();
         let v: serde_json::Value = serde_json::from_str(info.as_str()).unwrap();
         assert_eq!(v["kind"], "protocol");
+        assert_eq!(v["name"], "postgres");
         assert_eq!(v["schemes"][0], "postgres");
-        assert_eq!(v["schemes"][2], "mysql");
-        assert_eq!(v["schemes"][3], "sql");
+        assert_eq!(v["schemes"][1], "postgresql");
     }
 
     // -----------------------------------------------------------------------
-    // Integration: real databases. Each block skips unless its env var is set.
-    //   docker compose -f examples/harness/docker-compose.yml up -d postgres mysql
+    // Integration: a real PostgreSQL server. Skips unless the env var is set.
+    //   docker compose -f examples/harness/docker-compose.yml up -d postgres
     //   LOADR_TEST_POSTGRES_URL=postgres://loadr:loadr@127.0.0.1:5432/loadr \
-    //   LOADR_TEST_MYSQL_URL=mysql://loadr:loadr@127.0.0.1:3306/loadr \
-    //     cargo test -p loadr-plugin-sql
+    //     cargo test -p loadr-plugin-postgres
     // -----------------------------------------------------------------------
 
     fn exec(url: &str, plugin: serde_json::Value) -> FfiResponse {
@@ -639,24 +539,6 @@ mod tests {
         );
         assert!(ins.error.is_none(), "insert error: {:?}", ins.error);
         assert_eq!(ins.extras["rows"], 1);
-    }
-
-    #[test]
-    fn mysql_select_count() {
-        let Ok(url) = std::env::var("LOADR_TEST_MYSQL_URL") else {
-            eprintln!("skipping: LOADR_TEST_MYSQL_URL not set");
-            return;
-        };
-        let resp = exec(
-            &url,
-            serde_json::json!({
-                "query": "SELECT COUNT(*) AS n FROM products WHERE stock > ?",
-                "params": ["0"],
-            }),
-        );
-        assert!(resp.error.is_none(), "count error: {:?}", resp.error);
-        assert_eq!(resp.status, 1);
-        assert_eq!(resp.extras["rows"], 1);
     }
 
     #[test]

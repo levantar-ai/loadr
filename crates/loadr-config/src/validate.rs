@@ -43,9 +43,6 @@ pub const BUILTIN_METRICS: &[&str] = &[
     "tcp_req_duration",
     "udp_req_duration",
     "graphql_req_duration",
-    "sql_reqs",
-    "sql_req_duration",
-    "sql_rows",
 ];
 
 const KNOWN_PROTOCOLS: &[&str] = &[
@@ -226,8 +223,10 @@ pub fn validate(plan: &TestPlan, source: Option<&str>, opts: &ValidateOptions) -
 
     // Thresholds.
     // Protocol plugins emit a `<name>_reqs` / `<name>_req_duration` /
-    // `<name>_docs` metric family derived from the plugin handler name, so a
-    // declared plugin makes those metric names valid threshold targets.
+    // `<name>_docs` / `<name>_rows` metric family derived from the plugin
+    // handler name, so a declared plugin makes those metric names valid
+    // threshold targets (`_docs` for Mongo-style document counts, `_rows` for
+    // SQL row counts).
     let plugin_metrics: BTreeSet<String> = plan
         .plugins
         .iter()
@@ -236,6 +235,7 @@ pub fn validate(plan: &TestPlan, source: Option<&str>, opts: &ValidateOptions) -
                 format!("{}_reqs", p.name),
                 format!("{}_req_duration", p.name),
                 format!("{}_docs", p.name),
+                format!("{}_rows", p.name),
             ]
         })
         .collect();

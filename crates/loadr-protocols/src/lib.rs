@@ -13,9 +13,11 @@
 //! - [`RedisHandler`] — Redis (RESP) commands over a per-VU pooled connection.
 //! - [`TcpHandler`] / [`UdpHandler`] — raw socket round trips.
 //!
-//! PostgreSQL/MySQL are no longer built in: SQL is a runtime-loadable native
-//! protocol plugin (`loadr plugin install sql`) so the heavy `sqlx` driver (and
-//! its `rsa` transitive dependency) stays out of the core binary.
+//! PostgreSQL/MySQL are no longer built in: each is its own runtime-loadable
+//! native protocol plugin (`loadr plugin install postgres` /
+//! `loadr plugin install mysql`) so the heavy `sqlx` driver stays out of the
+//! core binary. The MySQL plugin alone carries `sqlx-mysql`'s transitive `rsa`
+//! dependency; the PostgreSQL plugin is advisory-clean.
 //!
 //! Use [`builtin_registry`] to build a [`ProtocolRegistry`] with everything
 //! registered under its YAML name plus scheme aliases.

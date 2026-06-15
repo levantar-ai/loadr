@@ -2599,7 +2599,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "loadr-plugin-sql"
+name = "loadr-plugin-mysql"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "loadr-plugin-postgres"
 version = "1.0.0"
 dependencies = [
  "abi_stable",

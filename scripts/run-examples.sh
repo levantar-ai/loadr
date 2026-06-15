@@ -68,8 +68,9 @@ build_install_plugin() {
   fi
 }
 
-build_install_plugin loadr-plugin-mongo loadr_plugin_mongo loadr-plugin-mongo 28-mongo.yaml
-build_install_plugin loadr-plugin-sql   loadr_plugin_sql   loadr-plugin-sql   27-sql.yaml
+build_install_plugin loadr-plugin-mongo    loadr_plugin_mongo    loadr-plugin-mongo    28-mongo.yaml
+build_install_plugin loadr-plugin-postgres loadr_plugin_postgres loadr-plugin-postgres 27-postgres.yaml
+build_install_plugin loadr-plugin-mysql    loadr_plugin_mysql    loadr-plugin-mysql    29-mysql.yaml
 
 # Stage the examples + their data/scripts/protos so relative paths resolve.
 cp -r "$ROOT/examples/." "$RUNDIR/"
@@ -101,7 +102,7 @@ run_one() {  # $1 = example file (in RUNDIR), $2.. = extra loadr args
   local base; base="$(basename "$f")"
   repoint < "$f" > "$f.local" && mv "$f.local" "$f"
   local out; out="$("$LOADR" run "$@" "$f" 2>&1)"; local code=$?
-  local reqs; reqs="$(echo "$out" | grep -oE '(http_reqs|plugin_reqs|grpc_reqs|sql_reqs|mongo_reqs|ws_msgs_received)\.+: [0-9]+' | grep -oE '[0-9]+' | head -1)"
+  local reqs; reqs="$(echo "$out" | grep -oE '(http_reqs|plugin_reqs|grpc_reqs|postgres_reqs|mysql_reqs|mongo_reqs|ws_msgs_received)\.+: [0-9]+' | grep -oE '[0-9]+' | head -1)"
   NAMES+=("$base"); EXITS+=("$code"); NOTE+=("${reqs:-0} reqs")
 }
 

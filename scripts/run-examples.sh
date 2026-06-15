@@ -38,9 +38,29 @@ for i in $(seq 1 40); do
     && (echo > /dev/tcp/127.0.0.1/8081) 2>/dev/null \
     && docker compose -f "$COMPOSE" exec -T postgres pg_isready -U loadr -d loadr >/dev/null 2>&1 \
     && docker compose -f "$COMPOSE" exec -T mysql mysqladmin ping -h 127.0.0.1 -uloadr -ploadr --silent >/dev/null 2>&1 \
+    && docker compose -f "$COMPOSE" exec -T mongo mongosh -u loadr -p loadr --quiet --eval "db.getSiblingDB('loadr').runCommand({ping:1}).ok" loadr 2>/dev/null | grep -q 1 \
     && { echo "    services ready"; break; }
   sleep 1
 done
+
+# Build + install the native MongoDB protocol plugin so 28-mongo.yaml can run.
+# Plugins resolve from $LOADR_PLUGINS_DIR; point it at a temp dir for this run.
+echo "==> building + installing the mongo plugin"
+export LOADR_PLUGINS_DIR="$RUNDIR/plugins"
+mkdir -p "$LOADR_PLUGINS_DIR"
+if cargo build --manifest-path "$ROOT/Cargo.toml" -p loadr-plugin-mongo --release >/tmp/h-mongo-build.log 2>&1; then
+  # `plugin install` copies a dir holding plugin.toml + the artifact named by
+  # its `entry`. Stage them together, then install.
+  stage="$RUNDIR/mongo-stage"; mkdir -p "$stage"
+  cp "$ROOT/plugins/loadr-plugin-mongo/plugin.toml" "$stage/"
+  for art in libloadr_plugin_mongo.so libloadr_plugin_mongo.dylib loadr_plugin_mongo.dll; do
+    [ -f "$ROOT/target/release/$art" ] && cp "$ROOT/target/release/$art" "$stage/"
+  done
+  "$LOADR" plugin install "$stage" --plugins-dir "$LOADR_PLUGINS_DIR" >/dev/null 2>&1 \
+    || echo "    mongo plugin install failed; 28-mongo will ERR"
+else
+  echo "    mongo plugin build failed (see /tmp/h-mongo-build.log); 28-mongo will ERR"
+fi
 
 # Stage the examples + their data/scripts/protos so relative paths resolve.
 cp -r "$ROOT/examples/." "$RUNDIR/"
@@ -59,6 +79,7 @@ repoint() {  # stdin -> stdout: point hosts at local services, shorten durations
     s{rediss?://[^/\s"'\'']+}{redis://127.0.0.1:6379}g;
     s{postgres(?:ql)?://([^@/\s"'\'']+)@[^/\s"'\'']+/}{postgres://${1}\@127.0.0.1:5432/}g;
     s{mysql://([^@/\s"'\'']+)@[^/\s"'\'']+/}{mysql://${1}\@127.0.0.1:3306/}g;
+    s{mongodb://([^@/\s"'\'']+)@[^/\s"'\'']+/}{mongodb://${1}\@127.0.0.1:27017/}g;
     s{^(\s*)duration:\s*\d+(?:ms|s|m|h)\b}{${1}duration: 6s};
     s{(\{\s*)duration:\s*\d+(?:ms|s|m|h)(\s*,\s*target:)}{${1}duration: 3s${2}}g;
     s{\bsession_duration:\s*\d+(?:ms|s|m|h)\b}{session_duration: 1s}g;
@@ -71,7 +92,7 @@ run_one() {  # $1 = example file (in RUNDIR), $2.. = extra loadr args
   local base; base="$(basename "$f")"
   repoint < "$f" > "$f.local" && mv "$f.local" "$f"
   local out; out="$("$LOADR" run "$@" "$f" 2>&1)"; local code=$?
-  local reqs; reqs="$(echo "$out" | grep -oE '(http_reqs|plugin_reqs|grpc_reqs|sql_reqs|ws_msgs_received)\.+: [0-9]+' | grep -oE '[0-9]+' | head -1)"
+  local reqs; reqs="$(echo "$out" | grep -oE '(http_reqs|plugin_reqs|grpc_reqs|sql_reqs|mongo_reqs|ws_msgs_received)\.+: [0-9]+' | grep -oE '[0-9]+' | head -1)"
   NAMES+=("$base"); EXITS+=("$code"); NOTE+=("${reqs:-0} reqs")
 }
 

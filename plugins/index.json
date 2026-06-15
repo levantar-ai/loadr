@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "plugins": {
+    "mongo": {
+      "kind": "protocol",
+      "description": "MongoDB protocol: insert/find/update/delete/aggregate/command",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": {
+          "min_loadr_abi": "1.0",
+          "artifacts": {
+            "x86_64-unknown-linux-gnu": {
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-mongo-v1.0.0/mongo-x86_64-unknown-linux-gnu.tar.gz",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "entry": "libloadr_plugin_mongo.so"
+            },
+            "aarch64-unknown-linux-gnu": {
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-mongo-v1.0.0/mongo-aarch64-unknown-linux-gnu.tar.gz",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "entry": "libloadr_plugin_mongo.so"
+            },
+            "x86_64-apple-darwin": {
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-mongo-v1.0.0/mongo-x86_64-apple-darwin.tar.gz",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "entry": "libloadr_plugin_mongo.dylib"
+            },
+            "aarch64-apple-darwin": {
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-mongo-v1.0.0/mongo-aarch64-apple-darwin.tar.gz",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "entry": "libloadr_plugin_mongo.dylib"
+            },
+            "x86_64-pc-windows-msvc": {
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-mongo-v1.0.0/mongo-x86_64-pc-windows-msvc.zip",
+              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+              "entry": "loadr_plugin_mongo.dll"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -58,7 +58,8 @@
 - [WASM plugins](plugins/wasm.md)
 - [Native plugins](plugins/native.md)
 - [MongoDB plugin](plugins/mongo.md)
-- [SQL plugin (PostgreSQL & MySQL)](plugins/sql.md)
+- [PostgreSQL plugin](plugins/postgres.md)
+- [MySQL plugin](plugins/mysql.md)
 - [Developing a plugin](plugins/developing.md)
 - [Publishing a plugin](plugins/publishing.md)
 

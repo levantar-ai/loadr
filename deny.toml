@@ -8,13 +8,15 @@ ignore = [
     "RUSTSEC-2025-0134", # rustls-pemfile (superseded by rustls-pki-types)
     # rsa (via sqlx-mysql) — Marvin timing side-channel. No safe upgrade exists
     # upstream yet. Only reachable for MySQL caching_sha2/sha256 password auth on
-    # a non-TLS connection; load-test targets are operator-controlled. As of the
-    # SQL-plugin migration `sqlx` (and thus `rsa`) lives ONLY in the
-    # `loadr-plugin-sql` workspace member — it is no longer in the loadr core
-    # binary. It still appears in this workspace-wide scan because the plugin is
-    # a workspace member, which is expected. Revisit when RustCrypto/RSA ships a
-    # constant-time release.
-    "RUSTSEC-2023-0071", # rsa (transitive via sqlx-mysql, now plugin-only)
+    # a non-TLS connection; load-test targets are operator-controlled. `rsa`
+    # (and `sqlx-mysql`) now lives ONLY in the `loadr-plugin-mysql` workspace
+    # member: that plugin enables `sqlx`'s `mysql` feature, which is the sole
+    # source of `rsa`. The `loadr-plugin-postgres` plugin enables only the
+    # `postgres` feature and is fully advisory-clean, as is the loadr core
+    # binary. `rsa` still appears in this workspace-wide scan because the MySQL
+    # plugin is a workspace member, which is expected. Revisit when RustCrypto/
+    # RSA ships a constant-time release.
+    "RUSTSEC-2023-0071", # rsa (transitive via sqlx-mysql; loadr-plugin-mysql only)
 ]
 
 [bans]

@@ -1276,21 +1276,6 @@ impl FlowRunner {
                 self.emit_named(vu, "ws_msgs_received", MetricKind::Counter, received, &tags);
                 m.rate(&b.http_req_failed, response.error.is_some(), &tags);
             }
-            "sql" => {
-                self.emit_named(vu, "sql_reqs", MetricKind::Counter, 1.0, &tags);
-                self.emit_named(
-                    vu,
-                    "sql_req_duration",
-                    MetricKind::Trend,
-                    t.duration_ms,
-                    &tags,
-                );
-                // `rows` carries rows returned (SELECT) or affected (DML).
-                if let Some(rows) = response.extras.get("rows").and_then(|v| v.as_f64()) {
-                    self.emit_named(vu, "sql_rows", MetricKind::Counter, rows, &tags);
-                }
-                m.rate(&b.http_req_failed, response.failed(), &tags);
-            }
             other => {
                 // grpc/tcp/udp built-ins keep their own family name. The
                 // `sse`/`redis`/`browser` built-ins historically share the
@@ -1298,7 +1283,8 @@ impl FlowRunner {
                 // and thresholds keep working. Everything else is a loaded
                 // protocol *plugin*, which gets a family derived from its own
                 // protocol name (so the `mongo` plugin emits `mongo_reqs` /
-                // `mongo_req_duration` / `mongo_docs`).
+                // `mongo_req_duration` / `mongo_docs`, and the `postgres` /
+                // `mysql` plugins emit `postgres_reqs` / `mysql_reqs` etc.).
                 let family = match other {
                     "grpc" | "tcp" | "udp" => other.to_string(),
                     "sse" | "redis" | "browser" => "plugin".to_string(),
@@ -1319,14 +1305,24 @@ impl FlowRunner {
                     &tags,
                 );
                 // Plugin protocols may report a count of affected/returned
-                // records in `extras.docs` (e.g. Mongo docs, generic rows),
-                // surfaced as `<family>_docs`.
+                // records: `extras.docs` (e.g. Mongo documents) is surfaced as
+                // `<family>_docs`, and `extras.rows` (e.g. SQL rows returned or
+                // affected) as `<family>_rows`.
                 if let Some(docs) = response.extras.get("docs").and_then(|v| v.as_f64()) {
                     self.emit_named(
                         vu,
                         &format!("{family}_docs"),
                         MetricKind::Counter,
                         docs,
+                        &tags,
+                    );
+                }
+                if let Some(rows) = response.extras.get("rows").and_then(|v| v.as_f64()) {
+                    self.emit_named(
+                        vu,
+                        &format!("{family}_rows"),
+                        MetricKind::Counter,
+                        rows,
                         &tags,
                     );
                 }

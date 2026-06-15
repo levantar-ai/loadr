@@ -55,12 +55,15 @@ Non-HTTP requests use the same step with an extra options block — see the
 - request: { url: grpc://x:50051, grpc: { service: pkg.Svc, method: M, reflection: true, message: {...} } }
 - request: { url: /graphql, protocol: graphql, graphql: { query: "...", variables: {...} } }
 - request: { url: tcp://x:7000, socket: { send_text: "PING\n", read_bytes: 64 } }
-- request: { url: postgres://u:p@db/app, sql: { query: "SELECT * FROM t WHERE id=$1", params: ["1"] } }  # needs the SQL plugin
+- request: { url: postgres://u:p@db/app, sql: { query: "SELECT * FROM t WHERE id=$1", params: ["1"] } }  # needs the PostgreSQL plugin
 ```
 
-> SQL (PostgreSQL/MySQL) is a [native protocol plugin](../plugins/sql.md), not
-> built in: `loadr plugin install sql` and list it under `plugins:`. The `sql:`
-> block above is the same once the plugin is installed.
+> SQL is delivered as native protocol plugins, not built in: install the
+> [PostgreSQL plugin](../plugins/postgres.md) (`loadr plugin install postgres`,
+> advisory-clean) or the [MySQL plugin](../plugins/mysql.md)
+> (`loadr plugin install mysql`) and list it under `plugins:`. The `sql:` block
+> above is the same once the relevant plugin is installed (`$1, $2, …`
+> placeholders for PostgreSQL, `?` for MySQL).
 
 ## Cookies
 

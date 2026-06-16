@@ -9,28 +9,102 @@
           "artifacts": {
             "aarch64-apple-darwin": {
               "entry": "libloadr_plugin_mongo.dylib",
-              "sha256": "2492d69ff165a18b0f47c00df90465aab1547b90671d49ee8314999d91eb9f40",
-              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.0.0/mongo-aarch64-apple-darwin.tar.gz"
+              "sha256": "911ea875b780ebd475e1e8981fc04292ae21328ac4b97bb54f998b1c07d73b37",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mongo-aarch64-apple-darwin.tar.gz"
             },
             "aarch64-unknown-linux-gnu": {
               "entry": "libloadr_plugin_mongo.so",
-              "sha256": "7dac5e6de0c8cc4aff5b16d904cb13df54b9e9e408c2e35304e366307719c2f0",
-              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.0.0/mongo-aarch64-unknown-linux-gnu.tar.gz"
+              "sha256": "9827a51aa401c3e1cc8ed09e24c26d93d9d8dafe2d9cb4e5aaf839916cc4363a",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mongo-aarch64-unknown-linux-gnu.tar.gz"
             },
             "x86_64-apple-darwin": {
               "entry": "libloadr_plugin_mongo.dylib",
-              "sha256": "5edc0071c4282429807b6f4cf0f22c4f751884494e99b778f4eecab6a37a2af5",
-              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.0.0/mongo-x86_64-apple-darwin.tar.gz"
+              "sha256": "853dc9b8add2713362b6cea8614cefe0625f9f24ee740812c6e5f02150046c28",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mongo-x86_64-apple-darwin.tar.gz"
             },
             "x86_64-pc-windows-msvc": {
               "entry": "loadr_plugin_mongo.dll",
-              "sha256": "dcd8d8db5e5b09894d7cd9026b707e50dd858abeb402d56f8f1cec482ec46d93",
-              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.0.0/mongo-x86_64-pc-windows-msvc.tar.gz"
+              "sha256": "54e6f968f8161ac7871b8e6513eb6540f4ae778fdd95247860e7134cb78c8a27",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mongo-x86_64-pc-windows-msvc.tar.gz"
             },
             "x86_64-unknown-linux-gnu": {
               "entry": "libloadr_plugin_mongo.so",
-              "sha256": "aa37581f7f8ec49ec6a38de5cb16bef087347f8c61f5157f77381902113c7f89",
-              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.0.0/mongo-x86_64-unknown-linux-gnu.tar.gz"
+              "sha256": "73dc304c4092dde09740881c92d4a4073f6b03139f62ba5e1a6d05854764d50b",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mongo-x86_64-unknown-linux-gnu.tar.gz"
+            }
+          },
+          "min_loadr_abi": "1.0"
+        }
+      }
+    },
+    "mysql": {
+      "description": "MySQL protocol: queries via sqlx with an internal per-URI pool",
+      "kind": "protocol",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": {
+          "artifacts": {
+            "aarch64-apple-darwin": {
+              "entry": "libloadr_plugin_mysql.dylib",
+              "sha256": "0a762526e24c73d4de687f9f837d4d79e5dfe122fe1f3bb96600f71f6720f325",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mysql-aarch64-apple-darwin.tar.gz"
+            },
+            "aarch64-unknown-linux-gnu": {
+              "entry": "libloadr_plugin_mysql.so",
+              "sha256": "9a6eaa56be1b984ca05260005c2daffccf290f89da17ccaedfbb25af749920d2",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mysql-aarch64-unknown-linux-gnu.tar.gz"
+            },
+            "x86_64-apple-darwin": {
+              "entry": "libloadr_plugin_mysql.dylib",
+              "sha256": "9209be6912a7f7ca2dc7436e710210b9c5ead0accdc7e80fe2ac33f1edba0576",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mysql-x86_64-apple-darwin.tar.gz"
+            },
+            "x86_64-pc-windows-msvc": {
+              "entry": "loadr_plugin_mysql.dll",
+              "sha256": "ecbdbc57171d5fa45a32a43c33f3d35cd3a3691ca590d2c8eb4d49748e138457",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mysql-x86_64-pc-windows-msvc.tar.gz"
+            },
+            "x86_64-unknown-linux-gnu": {
+              "entry": "libloadr_plugin_mysql.so",
+              "sha256": "211901077d182b5444d056becfcd163cea096a85dc9723510ab3f3e6937e9aa6",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/mysql-x86_64-unknown-linux-gnu.tar.gz"
+            }
+          },
+          "min_loadr_abi": "1.0"
+        }
+      }
+    },
+    "postgres": {
+      "description": "PostgreSQL protocol: queries via sqlx with an internal per-URI pool",
+      "kind": "protocol",
+      "latest": "1.0.0",
+      "versions": {
+        "1.0.0": {
+          "artifacts": {
+            "aarch64-apple-darwin": {
+              "entry": "libloadr_plugin_postgres.dylib",
+              "sha256": "fcb49946cc8a65a179582bc91ed63894b7f917d6afb13444a5abddf6092e42fd",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/postgres-aarch64-apple-darwin.tar.gz"
+            },
+            "aarch64-unknown-linux-gnu": {
+              "entry": "libloadr_plugin_postgres.so",
+              "sha256": "0570c357c7c4465b887fbe17cb80793a30fc9d20343df74423dee7d1ce573b41",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/postgres-aarch64-unknown-linux-gnu.tar.gz"
+            },
+            "x86_64-apple-darwin": {
+              "entry": "libloadr_plugin_postgres.dylib",
+              "sha256": "3d8decb88841c1ff18ec0df3205bed9981aa05866edb1ad8c721f7c0149422e9",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/postgres-x86_64-apple-darwin.tar.gz"
+            },
+            "x86_64-pc-windows-msvc": {
+              "entry": "loadr_plugin_postgres.dll",
+              "sha256": "2807845cf93e8322c4bb8443101d8eba808064194734a537cab330f74e684101",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/postgres-x86_64-pc-windows-msvc.tar.gz"
+            },
+            "x86_64-unknown-linux-gnu": {
+              "entry": "libloadr_plugin_postgres.so",
+              "sha256": "1381900968b5f344b6bf701f77e97dc9ef84d053549acd033bcadd2243a344c4",
+              "url": "https://github.com/levantar-ai/loadr/releases/download/plugin-v1.1.0/postgres-x86_64-unknown-linux-gnu.tar.gz"
             }
           },
           "min_loadr_abi": "1.0"

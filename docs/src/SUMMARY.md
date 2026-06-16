@@ -60,6 +60,7 @@
 - [PostgreSQL plugin](plugins/postgres.md)
 - [MySQL plugin](plugins/mysql.md)
 - [Redis plugin](plugins/redis.md)
+- [Apache Kafka plugin](plugins/kafka.md)
 - [Developing a plugin](plugins/developing.md)
 - [Publishing a plugin](plugins/publishing.md)
 

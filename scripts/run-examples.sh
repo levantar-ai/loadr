@@ -39,6 +39,7 @@ for i in $(seq 1 40); do
     && docker compose -f "$COMPOSE" exec -T postgres pg_isready -U loadr -d loadr >/dev/null 2>&1 \
     && docker compose -f "$COMPOSE" exec -T mysql mysqladmin ping -h 127.0.0.1 -uloadr -ploadr --silent >/dev/null 2>&1 \
     && docker compose -f "$COMPOSE" exec -T mongo mongosh -u loadr -p loadr --quiet --eval "db.getSiblingDB('loadr').runCommand({ping:1}).ok" loadr 2>/dev/null | grep -q 1 \
+    && docker compose -f "$COMPOSE" exec -T rabbitmq rabbitmq-diagnostics ping >/dev/null 2>&1 \
     && { echo "    services ready"; break; }
   sleep 1
 done
@@ -71,6 +72,7 @@ build_install_plugin() {
 build_install_plugin loadr-plugin-mongo    loadr_plugin_mongo    loadr-plugin-mongo    28-mongo.yaml
 build_install_plugin loadr-plugin-postgres loadr_plugin_postgres loadr-plugin-postgres 27-postgres.yaml
 build_install_plugin loadr-plugin-mysql    loadr_plugin_mysql    loadr-plugin-mysql    29-mysql.yaml
+build_install_plugin loadr-plugin-rabbitmq loadr_plugin_rabbitmq loadr-plugin-rabbitmq 32-rabbitmq.yaml
 
 # Stage the examples + their data/scripts/protos so relative paths resolve.
 cp -r "$ROOT/examples/." "$RUNDIR/"
@@ -90,6 +92,7 @@ repoint() {  # stdin -> stdout: point hosts at local services, shorten durations
     s{postgres(?:ql)?://([^@/\s"'\'']+)@[^/\s"'\'']+/}{postgres://${1}\@127.0.0.1:5432/}g;
     s{mysql://([^@/\s"'\'']+)@[^/\s"'\'']+/}{mysql://${1}\@127.0.0.1:3306/}g;
     s{mongodb://([^@/\s"'\'']+)@[^/\s"'\'']+/}{mongodb://${1}\@127.0.0.1:27017/}g;
+    s{amqps?://([^@/\s"'\'']+)@[^/\s"'\'']+/}{amqp://${1}\@127.0.0.1:5672/}g;
     s{^(\s*)duration:\s*\d+(?:ms|s|m|h)\b}{${1}duration: 6s};
     s{(\{\s*)duration:\s*\d+(?:ms|s|m|h)(\s*,\s*target:)}{${1}duration: 3s${2}}g;
     s{\bsession_duration:\s*\d+(?:ms|s|m|h)\b}{session_duration: 1s}g;

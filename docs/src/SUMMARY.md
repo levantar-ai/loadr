@@ -60,6 +60,7 @@
 - [MongoDB plugin](plugins/mongo.md)
 - [PostgreSQL plugin](plugins/postgres.md)
 - [MySQL plugin](plugins/mysql.md)
+- [RabbitMQ plugin](plugins/rabbitmq.md)
 - [Developing a plugin](plugins/developing.md)
 - [Publishing a plugin](plugins/publishing.md)
 

@@ -30,7 +30,10 @@ echo "==> bringing up backend services"
 docker compose -f "$COMPOSE" up -d --build >/dev/null
 
 echo "==> waiting for services"
-for i in $(seq 1 40); do
+# Elasticsearch is the slow one (JVM cold start, ~30-60s), so the loop runs long
+# enough for it. The `_cluster/health` gate keeps 33-elasticsearch.yaml from
+# running before ES can accept writes.
+for i in $(seq 1 90); do
   docker compose -f "$COMPOSE" exec -T redis redis-cli ping 2>/dev/null | grep -q PONG \
     && curl -fsS -o /dev/null http://127.0.0.1:8080/get 2>/dev/null \
     && curl -fsS -o /dev/null http://127.0.0.1:8085/ 2>/dev/null \
@@ -40,6 +43,7 @@ for i in $(seq 1 40); do
     && docker compose -f "$COMPOSE" exec -T mysql mysqladmin ping -h 127.0.0.1 -uloadr -ploadr --silent >/dev/null 2>&1 \
     && docker compose -f "$COMPOSE" exec -T mongo mongosh -u loadr -p loadr --quiet --eval "db.getSiblingDB('loadr').runCommand({ping:1}).ok" loadr 2>/dev/null | grep -q 1 \
     && docker compose -f "$COMPOSE" exec -T kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server 127.0.0.1:9092 --list >/dev/null 2>&1 \
+    && curl -fsS -o /dev/null http://127.0.0.1:9200/_cluster/health 2>/dev/null \
     && { echo "    services ready"; break; }
   sleep 1
 done
@@ -74,6 +78,10 @@ build_install_plugin loadr-plugin-postgres loadr_plugin_postgres loadr-plugin-po
 build_install_plugin loadr-plugin-mysql    loadr_plugin_mysql    loadr-plugin-mysql    29-mysql.yaml
 build_install_plugin loadr-plugin-redis    loadr_plugin_redis    loadr-plugin-redis    30-redis.yaml
 build_install_plugin loadr-plugin-kafka    loadr_plugin_kafka    loadr-plugin-kafka    31-kafka.yaml
+build_install_plugin loadr-plugin-mongo         loadr_plugin_mongo         loadr-plugin-mongo         28-mongo.yaml
+build_install_plugin loadr-plugin-postgres      loadr_plugin_postgres      loadr-plugin-postgres      27-postgres.yaml
+build_install_plugin loadr-plugin-mysql         loadr_plugin_mysql         loadr-plugin-mysql         29-mysql.yaml
+build_install_plugin loadr-plugin-elasticsearch loadr_plugin_elasticsearch loadr-plugin-elasticsearch 33-elasticsearch.yaml
 
 # Stage the examples + their data/scripts/protos so relative paths resolve.
 cp -r "$ROOT/examples/." "$RUNDIR/"
@@ -94,6 +102,7 @@ repoint() {  # stdin -> stdout: point hosts at local services, shorten durations
     s{mysql://([^@/\s"'\'']+)@[^/\s"'\'']+/}{mysql://${1}\@127.0.0.1:3306/}g;
     s{mongodb://([^@/\s"'\'']+)@[^/\s"'\'']+/}{mongodb://${1}\@127.0.0.1:27017/}g;
     s{kafka://[^/\s"'\'']+/}{kafka://127.0.0.1:9092/}g;
+    s{(?:elasticsearch|es)://[^/\s"'\'']+}{elasticsearch://127.0.0.1:9200}g;
     s{^(\s*)duration:\s*\d+(?:ms|s|m|h)\b}{${1}duration: 6s};
     s{(\{\s*)duration:\s*\d+(?:ms|s|m|h)(\s*,\s*target:)}{${1}duration: 3s${2}}g;
     s{\bsession_duration:\s*\d+(?:ms|s|m|h)\b}{session_duration: 1s}g;

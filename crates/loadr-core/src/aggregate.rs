@@ -235,6 +235,18 @@ impl Snapshot {
             .map(|s| s.interval_count)
             .sum()
     }
+
+    /// Sum interval counts across *every* request-counter series — any metric
+    /// whose name ends in `_reqs` (`http_reqs`, `grpc_reqs`, and plugin
+    /// families like `mongo_reqs` / `goecho_reqs`). Used for live and timeline
+    /// throughput so non-HTTP protocols aren't reported as zero RPS.
+    pub fn interval_request_count(&self) -> u64 {
+        self.series
+            .iter()
+            .filter(|s| s.metric.ends_with("_reqs"))
+            .map(|s| s.interval_count)
+            .sum()
+    }
 }
 
 /// Serializable, mergeable delta for distributed aggregation.

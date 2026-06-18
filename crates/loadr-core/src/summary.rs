@@ -100,7 +100,7 @@ impl TimelinePoint {
             for s in snap
                 .series
                 .iter()
-                .filter(|s| s.metric == "http_req_duration")
+                .filter(|s| s.metric.ends_with("_req_duration"))
             {
                 if s.agg.count == 0 {
                     continue;
@@ -122,7 +122,7 @@ impl TimelinePoint {
 
         TimelinePoint {
             elapsed_secs: snap.elapsed_secs,
-            rps: interval_count("http_reqs") / interval,
+            rps: snap.interval_request_count() as f64 / interval,
             iterations_ps: interval_count("iterations") / interval,
             active_vus,
             error_rate,
@@ -476,6 +476,43 @@ mod tests {
         assert!((p.error_rate - 0.25).abs() < 1e-9, "err={}", p.error_rate);
         assert!(p.latency_p95.unwrap() >= p.latency_p50.unwrap());
         assert!(p.latency_avg.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn timeline_counts_plugin_protocol_requests() {
+        // A plugin-only run emits `<family>_reqs` / `<family>_req_duration`,
+        // never `http_reqs`. The timeline must still report real throughput and
+        // latency. Regression: live/report RPS used to be hardcoded to
+        // http_reqs, so plugin runs showed 0 RPS while saturated.
+        let mut agg = Aggregator::new();
+        for i in 0..15 {
+            agg.record(&Sample {
+                metric: Arc::from("mongo_reqs"),
+                kind: MetricKind::Counter,
+                value: 1.0,
+                tags: Arc::new(Tags::new()),
+                timestamp_ms: now_millis(),
+            });
+            agg.record(&Sample {
+                metric: Arc::from("mongo_req_duration"),
+                kind: MetricKind::Trend,
+                value: 5.0 + i as f64,
+                tags: Arc::new(Tags::new()),
+                timestamp_ms: now_millis(),
+            });
+        }
+        let snap = agg.snapshot();
+        assert_eq!(
+            snap.interval_request_count(),
+            15,
+            "rollup should count plugin _reqs families"
+        );
+        let p = TimelinePoint::from_snapshot(&snap);
+        assert!(p.rps > 0.0, "plugin rps should be positive, got {}", p.rps);
+        assert!(
+            p.latency_p95.unwrap() > 0.0,
+            "plugin latency should be reported"
+        );
     }
 
     #[test]

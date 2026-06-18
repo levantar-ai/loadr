@@ -25,17 +25,22 @@ pub async fn show_progress(handle: RunHandle) {
         let snap = snapshots.borrow_and_update().clone();
         let elapsed = started.elapsed().as_secs();
         let interval = snap.interval_secs.max(0.001);
-        let rps = snap.interval_count("http_reqs") as f64 / interval;
+        // Roll up across every protocol's request counter (http_reqs,
+        // grpc_reqs, and plugin families like mongo_reqs) so plugin-only runs
+        // don't show 0 RPS.
+        let rps = snap.interval_request_count() as f64 / interval;
         let vus = snap
             .series
             .iter()
             .find(|s| s.metric == "vus")
             .and_then(|s| s.agg.last)
             .unwrap_or(0.0);
+        // Highest p95 across every protocol's request-duration trend
+        // (http_req_duration, grpc_req_duration, plugin <family>_req_duration).
         let p95 = snap
             .series
             .iter()
-            .filter(|s| s.metric == "http_req_duration")
+            .filter(|s| s.metric.ends_with("_req_duration"))
             .filter_map(|s| s.agg.p95)
             .fold(f64::NAN, f64::max);
         let failed: u64 = snap

@@ -56,8 +56,8 @@ literal CSRF token and user id:
 - request:
     method: POST
     url: /api/cart/items
-    headers: { X-CSRF-Token: "c2a5f1e8-9b3d-4a6c-8e21-7f0d4b9a1c33" }   # stale!
-- request: { method: GET, url: /api/users/4815162342/orders }            # stale!
+    headers: { X-CSRF-Token: "<token-captured-while-recording>" }   # stale!
+- request: { method: GET, url: /api/users/<recorded-user-id>/orders }   # stale!
 ```
 
 `loadr convert session.har` produces, instead:

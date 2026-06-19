@@ -1,0 +1,40 @@
+name: Desktop
+
+on:
+  push:
+    branches: [main]
+    paths: ['desktop/**', 'crates/loadr-config/**', 'crates/loadr-cli/**', '.github/workflows/desktop.yml']
+  pull_request:
+    paths: ['desktop/**', 'crates/loadr-config/**', 'crates/loadr-cli/**', '.github/workflows/desktop.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck · lint · unit + round-trip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with: { egress-policy: audit }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+        with: { toolchain: stable }
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - name: Build loadr (for round-trip validation)
+        run: cargo build -p loadr-cli
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: desktop/package-lock.json }
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run typecheck
+        working-directory: desktop
+      - run: npm run lint
+        working-directory: desktop
+      - name: Unit + round-trip tests
+        working-directory: desktop
+        env:
+          LOADR_BIN: ${{ github.workspace }}/target/debug/loadr
+        run: npm test

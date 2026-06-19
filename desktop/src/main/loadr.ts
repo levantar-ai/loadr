@@ -1,0 +1,91 @@
+// Main-process bridge to the loadr CLI. The GUI is a front-end over the CLI:
+// we resolve a bundled, version-pinned binary (falling back to PATH in dev) and
+// invoke it with ARRAY args only — never a shell string — so plan content can
+// never be interpreted by a shell.
+
+import { execFile } from 'node:child_process';
+import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileP = promisify(execFile);
+
+/** Where the bundled binary lives inside a packaged app, relative to resources. */
+function bundledPath(): string | null {
+  // electron sets process.resourcesPath in packaged apps.
+  const res = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
+  if (!res) return null;
+  const exe = process.platform === 'win32' ? 'loadr.exe' : 'loadr';
+  const p = join(res, 'bin', exe);
+  return existsSync(p) ? p : null;
+}
+
+/** Resolve the loadr binary: bundled first, then $LOADR_BIN, then PATH. */
+export function resolveLoadr(): string {
+  return bundledPath() ?? process.env.LOADR_BIN ?? 'loadr';
+}
+
+export interface Diagnostic {
+  severity: 'error' | 'warning' | string;
+  message: string;
+  [k: string]: unknown;
+}
+
+export interface ValidateResult {
+  ok: boolean; // no errors
+  diagnostics: Diagnostic[];
+  raw: string;
+}
+
+/** `loadr --version`. */
+export async function version(): Promise<string> {
+  const { stdout } = await execFileP(resolveLoadr(), ['--version']);
+  return stdout.trim();
+}
+
+/** The plan JSON Schema (`loadr schema`) — drives schema-aware form rendering. */
+export async function schema(): Promise<unknown> {
+  const { stdout } = await execFileP(resolveLoadr(), ['schema'], { maxBuffer: 32 * 1024 * 1024 });
+  return JSON.parse(stdout);
+}
+
+/**
+ * Validate a plan's YAML by handing it to the CLI. Writes to a temp file (the
+ * CLI validates paths) and runs `loadr validate --format json`. Errors are
+ * returned as diagnostics, not thrown — invalid plans are an expected state in
+ * an editor.
+ */
+export async function validate(yamlText: string, checkFiles = false): Promise<ValidateResult> {
+  const dir = mkdtempSync(join(tmpdir(), 'loadr-validate-'));
+  const file = join(dir, 'plan.yaml');
+  writeFileSync(file, yamlText);
+  const args = ['validate', '--format', 'json'];
+  if (!checkFiles) args.push('--no-check-files');
+  args.push(file);
+  try {
+    const { stdout } = await execFileP(resolveLoadr(), args, { maxBuffer: 16 * 1024 * 1024 });
+    return parseValidate(stdout);
+  } catch (e) {
+    // Non-zero exit (validation errors) still carries JSON on stdout.
+    const stdout = (e as { stdout?: string }).stdout ?? '';
+    if (stdout) return parseValidate(stdout);
+    return {
+      ok: false,
+      diagnostics: [{ severity: 'error', message: (e as Error).message }],
+      raw: stdout,
+    };
+  }
+}
+
+function parseValidate(raw: string): ValidateResult {
+  let diagnostics: Diagnostic[] = [];
+  try {
+    const parsed = JSON.parse(raw);
+    diagnostics = Array.isArray(parsed) ? parsed : (parsed.diagnostics ?? []);
+  } catch {
+    /* leave diagnostics empty if the CLI printed non-JSON */
+  }
+  const ok = !diagnostics.some((d) => d.severity === 'error');
+  return { ok, diagnostics, raw };
+}

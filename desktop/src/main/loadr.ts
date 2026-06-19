@@ -78,6 +78,25 @@ export async function validate(yamlText: string, checkFiles = false): Promise<Va
   }
 }
 
+/** Map a file extension to a `loadr convert --from` kind. */
+export function convertKind(file: string): 'jmx' | 'k6' | 'har' | null {
+  const ext = file.split('.').pop()?.toLowerCase();
+  if (ext === 'jmx' || ext === 'xml') return 'jmx';
+  if (ext === 'js' || ext === 'ts' || ext === 'mjs') return 'k6';
+  if (ext === 'har') return 'har';
+  return null;
+}
+
+/** Import a JMeter/k6/HAR file via `loadr convert`; returns the YAML it emits. */
+export async function convert(file: string): Promise<string> {
+  const kind = convertKind(file);
+  if (!kind) throw new Error(`cannot import ${file}: expected .jmx, .js or .har`);
+  const { stdout } = await execFileP(resolveLoadr(), ['convert', '--from', kind, file], {
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  return stdout;
+}
+
 function parseValidate(raw: string): ValidateResult {
   let diagnostics: Diagnostic[] = [];
   try {

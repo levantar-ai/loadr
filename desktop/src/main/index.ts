@@ -7,7 +7,7 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 
-import { schema, validate, version } from './loadr';
+import { convert, schema, validate, version } from './loadr';
 
 const isDev = !app.isPackaged;
 
@@ -51,6 +51,22 @@ ipcMain.handle('plan:open', async () => {
 });
 
 ipcMain.handle('plan:read', (_e: IpcMainInvokeEvent, path: string) => readFile(path, 'utf8'));
+
+ipcMain.handle('plan:import', async () => {
+  const r = await dialog.showOpenDialog({
+    properties: ['openFile'],
+    filters: [
+      { name: 'Importable', extensions: ['jmx', 'js', 'ts', 'mjs', 'har', 'xml'] },
+      { name: 'JMeter', extensions: ['jmx', 'xml'] },
+      { name: 'k6', extensions: ['js', 'ts', 'mjs'] },
+      { name: 'HAR', extensions: ['har'] },
+    ],
+  });
+  if (r.canceled || r.filePaths.length === 0) return null;
+  const path = r.filePaths[0];
+  const content = await convert(path);
+  return { path, content };
+});
 
 ipcMain.handle('plan:save', async (_e: IpcMainInvokeEvent, path: string | null, content: string) => {
   let target = path;

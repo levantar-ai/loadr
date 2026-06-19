@@ -2,9 +2,18 @@
 // so the YAML pane stays in sync and the change is the same data the CLI sees.
 // Drag-and-drop reordering is added in M3; M2 ships add/remove/up/down.
 
+import {
+  DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
 import { addScenario, addStep, deleteIn, moveStep, setExecutor } from '../../shared/edit';
 import { STEP_KINDS, stepKind, type ExecutorKind, type Scenario, type Step, type StepKind } from '../../shared/types';
 import type { PlanDoc } from '../state/usePlanDoc';
+import { dragEndIndices } from './dnd';
 
 const EXECUTORS: ExecutorKind[] = [
   'constant-vus', 'ramping-vus', 'constant-arrival-rate', 'ramping-arrival-rate',
@@ -107,6 +116,17 @@ function ScenarioForm({ doc, name, sc }: { doc: PlanDoc; name: string; sc: Scena
 }
 
 function FlowForm({ doc, scenario, flow }: { doc: PlanDoc; scenario: string; flow: Step[] }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const ids = flow.map((_, i) => String(i));
+
+  function onDragEnd(e: DragEndEvent) {
+    const move = dragEndIndices(e);
+    if (move) doc.apply((p) => moveStep(p, scenario, move.from, move.to));
+  }
+
   return (
     <div className="mt-3">
       <div className="flex items-center justify-between">
@@ -123,22 +143,51 @@ function FlowForm({ doc, scenario, flow }: { doc: PlanDoc; scenario: string; flo
           {STEP_KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
       </div>
-      <ol className="mt-2 space-y-2">
-        {flow.map((step, i) => (
-          <li key={i} className="rounded border border-[#232330] bg-[#0d0d12] p-2" data-testid={`step-${i}`}>
-            <div className="flex items-center justify-between">
-              <code className="text-xs text-[#fb923c]">{stepKind(step) ?? 'unknown'}</code>
-              <div className="flex gap-2 text-xs text-[#6b7280]">
-                <button disabled={i === 0} onClick={() => doc.apply((p) => moveStep(p, scenario, i, i - 1))}>↑</button>
-                <button disabled={i === flow.length - 1} onClick={() => doc.apply((p) => moveStep(p, scenario, i, i + 1))}>↓</button>
-                <button className="text-[#fca5a5]" onClick={() => doc.apply((p) => deleteIn(p, ['scenarios', scenario, 'flow', i]))}>✕</button>
-              </div>
-            </div>
-            <StepFields doc={doc} scenario={scenario} index={i} step={step} />
-          </li>
-        ))}
-      </ol>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          <ol className="mt-2 space-y-2">
+            {flow.map((step, i) => (
+              <SortableStep key={i} id={String(i)} doc={doc} scenario={scenario} index={i} step={step} count={flow.length} />
+            ))}
+          </ol>
+        </SortableContext>
+      </DndContext>
     </div>
+  );
+}
+
+function SortableStep({
+  id, doc, scenario, index, step, count,
+}: { id: string; doc: PlanDoc; scenario: string; index: number; step: Step; count: number }) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="rounded border border-[#232330] bg-[#0d0d12] p-2"
+      data-testid={`step-${index}`}
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button
+            className="cursor-grab text-[#6b7280]"
+            aria-label={`drag ${stepKind(step) ?? 'step'}`}
+            {...attributes}
+            {...listeners}
+          >
+            ⠿
+          </button>
+          <code className="text-xs text-[#fb923c]">{stepKind(step) ?? 'unknown'}</code>
+        </div>
+        <div className="flex gap-2 text-xs text-[#6b7280]">
+          <button disabled={index === 0} onClick={() => doc.apply((p) => moveStep(p, scenario, index, index - 1))}>↑</button>
+          <button disabled={index === count - 1} onClick={() => doc.apply((p) => moveStep(p, scenario, index, index + 1))}>↓</button>
+          <button className="text-[#fca5a5]" onClick={() => doc.apply((p) => deleteIn(p, ['scenarios', scenario, 'flow', index]))}>✕</button>
+        </div>
+      </div>
+      <StepFields doc={doc} scenario={scenario} index={index} step={step} />
+    </li>
   );
 }
 

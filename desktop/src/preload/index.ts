@@ -25,6 +25,7 @@ export interface LoadrApi {
   schema(): Promise<unknown>;
   validate(yamlText: string): Promise<ValidateResult>;
   openPlan(): Promise<OpenedPlan | null>;
+  importPlan(): Promise<OpenedPlan | null>;
   readPlan(path: string): Promise<string>;
   savePlan(path: string | null, content: string): Promise<string | null>;
 }
@@ -34,6 +35,7 @@ const api: LoadrApi = {
   schema: () => ipcRenderer.invoke('loadr:schema'),
   validate: (yamlText) => ipcRenderer.invoke('loadr:validate', yamlText),
   openPlan: () => ipcRenderer.invoke('plan:open'),
+  importPlan: () => ipcRenderer.invoke('plan:import'),
   readPlan: (path) => ipcRenderer.invoke('plan:read', path),
   savePlan: (path, content) => ipcRenderer.invoke('plan:save', path, content),
 };

@@ -10,6 +10,7 @@ paths = [
   '''examples/.*''',          # demo workloads + their CSV/JSON feeders (fake users/tokens)
   '''testsupport/.*''',       # in-process test servers
   '''.*_test\.rs''',
+  '''crates/loadr-convert/src/har\.rs''',  # embedded fake HAR fixture for the unit tests
 ]
 # Belt-and-braces: these placeholder values appear in examples/docs.
 regexes = [

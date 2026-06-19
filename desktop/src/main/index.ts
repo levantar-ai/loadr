@@ -18,7 +18,7 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 860,
-    backgroundColor: '#0a0a0e',
+    backgroundColor: '#07070a',
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

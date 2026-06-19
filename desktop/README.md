@@ -17,6 +17,11 @@ Stack: Electron + TypeScript, React 19 + Vite 6 + Tailwind 4 (renderer), Vitest
 - [~] **M6** — electron-builder packaging + CI matrix + Playwright-for-Electron
   acceptance suite (authored; runs in CI under xvfb — see note below)
 - [ ] M7 — semantic-release + signed multi-platform artifacts
+- [x] **Composer polish** — brand design system (shared loadr palette + UI
+  primitives), **optional** YAML view (Form / Split / YAML toggle, forms-first),
+  and **real forms for every step kind** with recursive nested-step editors
+  (request, think_time, js, group, repeat, while, if, random, foreach, switch,
+  during, retry, parallel, rendezvous) — composing a plan never requires YAML
 
 ## Develop
 ```bash

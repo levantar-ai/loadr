@@ -5,6 +5,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 import type { Summary } from '../shared/results';
 import type { RunRecord } from '../shared/history';
+import type { InstalledPlugin } from '../shared/plugins';
 
 export interface OpenedPlan {
   path: string;
@@ -34,6 +35,10 @@ export interface LoadrApi {
   run(yamlText: string, onLine: (line: string) => void): Promise<Summary>;
   historyList(): Promise<RunRecord[]>;
   historyAppend(rec: RunRecord): Promise<RunRecord[]>;
+  pluginList(): Promise<InstalledPlugin[]>;
+  pluginInstall(spec: string, allowUntrusted: boolean): Promise<string>;
+  pluginRemove(name: string): Promise<void>;
+  pluginBrowseDir(): Promise<string | null>;
 }
 
 const api: LoadrApi = {
@@ -56,6 +61,10 @@ const api: LoadrApi = {
   },
   historyList: () => ipcRenderer.invoke('history:list'),
   historyAppend: (rec) => ipcRenderer.invoke('history:append', rec),
+  pluginList: () => ipcRenderer.invoke('plugin:list'),
+  pluginInstall: (spec, allowUntrusted) => ipcRenderer.invoke('plugin:install', { spec, allowUntrusted }),
+  pluginRemove: (name) => ipcRenderer.invoke('plugin:remove', name),
+  pluginBrowseDir: () => ipcRenderer.invoke('plugin:browseDir'),
 };
 
 contextBridge.exposeInMainWorld('loadr', api);

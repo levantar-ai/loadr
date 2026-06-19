@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { parseSummary, type Summary } from '../shared/results';
+import { parsePluginList, type InstalledPlugin } from '../shared/plugins';
 
 const execFileP = promisify(execFile);
 
@@ -87,6 +88,29 @@ export function convertKind(file: string): 'jmx' | 'k6' | 'har' | null {
   if (ext === 'js' || ext === 'ts' || ext === 'mjs') return 'k6';
   if (ext === 'har') return 'har';
   return null;
+}
+
+/** Installed plugins (`loadr plugin list`). */
+export async function pluginList(): Promise<InstalledPlugin[]> {
+  try {
+    const { stdout } = await execFileP(resolveLoadr(), ['plugin', 'list']);
+    return parsePluginList(stdout);
+  } catch {
+    return [];
+  }
+}
+
+/** Install a plugin by index name, directory or URL. Returns CLI output. */
+export async function pluginInstall(spec: string, allowUntrusted = false): Promise<string> {
+  const args = ['plugin', 'install', spec];
+  if (allowUntrusted) args.push('--allow-untrusted');
+  const { stdout, stderr } = await execFileP(resolveLoadr(), args, { maxBuffer: 16 * 1024 * 1024 });
+  return (stdout + stderr).trim();
+}
+
+/** Remove an installed plugin by name. */
+export async function pluginRemove(name: string): Promise<void> {
+  await execFileP(resolveLoadr(), ['plugin', 'remove', name]);
 }
 
 /** Import a JMeter/k6/HAR file via `loadr convert`; returns the YAML it emits. */

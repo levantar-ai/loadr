@@ -47,12 +47,13 @@ export const Alert: Icon = (p) => <Svg {...p}><path d="M12 9v4m0 4h.01M10.3 3.9 
 export const ArrowUp: Icon = (p) => <Svg {...p}><path d="M12 19V5m-7 7 7-7 7 7" /></Svg>;
 export const ArrowDown: Icon = (p) => <Svg {...p}><path d="M12 5v14m7-7-7 7-7-7" /></Svg>;
 export const Search: Icon = (p) => <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" /></Svg>;
+export const PanelLeft: Icon = (p) => <Svg {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16" /></Svg>;
 
 // ---- step-kind glyphs ------------------------------------------------------
 const Globe: Icon = (p) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18z" /></Svg>;
 const Clock: Icon = (p) => <Svg {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Svg>;
 const Braces: Icon = (p) => <Svg {...p}><path d="M8 3c-2 0-3 1-3 3v2c0 1-1 2-2 2 1 0 2 1 2 2v2c0 2 1 3 3 3M16 3c2 0 3 1 3 3v2c0 1 1 2 2 2-1 0-2 1-2 2v2c0 2-1 3-3 3" /></Svg>;
-const Layers: Icon = (p) => <Svg {...p}><path d="m12 3 9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" /></Svg>;
+export const Layers: Icon = (p) => <Svg {...p}><path d="m12 3 9 5-9 5-9-5 9-5zM3 13l9 5 9-5M3 17l9 5 9-5" /></Svg>;
 const Repeat: Icon = (p) => <Svg {...p}><path d="m17 2 4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" /></Svg>;
 const Loop: Icon = (p) => <Svg {...p}><path d="M21 12a9 9 0 1 1-3-6.7M21 4v4h-4" /></Svg>;
 const Branch: Icon = (p) => <Svg {...p}><circle cx="6" cy="6" r="2.5" /><circle cx="6" cy="18" r="2.5" /><circle cx="18" cy="8" r="2.5" /><path d="M6 8.5v7M6 13a6 6 0 0 1 6-6h3" /></Svg>;

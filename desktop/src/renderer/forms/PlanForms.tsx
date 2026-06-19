@@ -21,7 +21,9 @@ import {
 import {
   STEP_KINDS, stepKind, type ExecutorKind, type Json, type Scenario, type Step, type StepKind,
 } from '../../shared/types';
+import { asArr as arr, asObj as obj, stepSummary } from '../../shared/step';
 import type { PlanDoc } from '../state/usePlanDoc';
+import { useSelection } from '../state/selection';
 import { dragEndIndices } from './dnd';
 import {
   Badge, Button, Field, IconButton, NumberInput, Select, Textarea, TextInput,
@@ -35,13 +37,10 @@ const EXECUTORS: ExecutorKind[] = [
   'per-vu-iterations', 'shared-iterations', 'externally-controlled',
 ];
 
-const obj = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' ? (v as Record<string, unknown>) : {});
-const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
-
 // ---- top-level sections ---------------------------------------------------
 export function PlanMetaForm({ doc }: { doc: PlanDoc }) {
   return (
-    <Section title="Plan" subtitle="Identity & shared HTTP defaults">
+    <Section id="plan" title="Plan" subtitle="Identity & shared HTTP defaults">
       <div className="grid gap-3">
         <Field label="Name">
           <TextInput value={doc.plan.name ?? ''} placeholder="my load test" onChange={(e) => doc.update(['name'], e.target.value || undefined)} />
@@ -89,8 +88,14 @@ export function ScenariosForm({ doc }: { doc: PlanDoc }) {
 
 function ScenarioForm({ doc, name, sc }: { doc: PlanDoc; name: string; sc: Scenario }) {
   const base = ['scenarios', name];
+  const { selectedId } = useSelection();
+  const anchor = `scenarios.${name}`;
   return (
-    <div className="rounded-xl border border-edge bg-panel" data-testid={`scenario-${name}`}>
+    <div
+      id={anchor}
+      className={`scroll-mt-4 rounded-xl border bg-panel transition-colors ${selectedId === anchor ? 'border-ember' : 'border-edge'}`}
+      data-testid={`scenario-${name}`}
+    >
       <div className="flex items-center justify-between gap-2 border-b border-edge px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-ember" />
@@ -135,7 +140,7 @@ function FlowEditor({
   }
 
   return (
-    <div className={dense ? '' : 'mt-1'}>
+    <div id={scope} className={`scroll-mt-4 ${dense ? '' : 'mt-1'}`}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-mist">
           {title} <span className="text-edge-bright">·</span> {steps.length}
@@ -184,15 +189,21 @@ function StepCard({
 }: { id: string; doc: PlanDoc; path: Path; index: number; step: Step; count: number }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const [open, setOpen] = useState(true);
+  const { selectedId } = useSelection();
   const kind = stepKind(step);
+  const anchor = [...path, index].join('.');
+  const selected = selectedId === anchor;
   const IconC: Icon = (kind && STEP_ICON[kind]) || STEP_ICON.request;
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 30 : undefined };
 
   return (
     <li
+      id={anchor}
       ref={setNodeRef}
       style={style}
-      className={`overflow-hidden rounded-lg border bg-coal ${isDragging ? 'border-ember/60 shadow-lg shadow-black/40' : 'border-edge'}`}
+      className={`scroll-mt-4 overflow-hidden rounded-lg border bg-coal transition-colors ${
+        isDragging ? 'border-ember/60 shadow-lg shadow-black/40' : selected ? 'border-ember ring-1 ring-ember/40' : 'border-edge'
+      }`}
       data-testid={`step-${index}`}
     >
       <div className="flex items-center gap-2 px-2 py-1.5">
@@ -203,7 +214,7 @@ function StepCard({
           <span className="text-mist">{open ? <ChevronDown /> : <ChevronRight />}</span>
           <span className="text-flare"><IconC /></span>
           <code className="text-xs font-semibold text-ash">{kind ?? 'unknown'}</code>
-          <span className="truncate text-xs text-mist">{summarise(step, kind)}</span>
+          <span className="truncate text-xs text-mist">{stepSummary(step, kind)}</span>
         </button>
         <div className="flex items-center">
           <IconButton icon={ArrowUp} label="move up" disabled={index === 0} onClick={() => doc.apply((p) => moveStepAt(p, path, index, index - 1))} />
@@ -534,29 +545,9 @@ function KeyValueEditor({
   );
 }
 
-function summarise(step: Step, kind: StepKind | null): string {
-  const b = obj(step[kind ?? '']);
-  switch (kind) {
-    case 'request': return `${(b.method as string) ?? 'GET'} ${(b.url as string) ?? ''}`.trim();
-    case 'think_time': return (b.type as string) ?? '';
-    case 'js': return typeof step.js === 'string' ? step.js.slice(0, 48) : '';
-    case 'group': return (b.name as string) ?? '';
-    case 'if':
-    case 'while': return (b.condition as string) ?? '';
-    case 'repeat': return b.times != null ? `×${b.times}` : '';
-    case 'foreach': return typeof b.items === 'string' ? b.items : '';
-    case 'switch': return (b.value as string) ?? '';
-    case 'during': return (b.duration as string) ?? '';
-    case 'parallel': return `${arr(b.branches).length} branches`;
-    case 'random': return `${arr(b.choices).length} choices`;
-    case 'rendezvous': return `${(b.name as string) ?? ''} · ${b.users ?? '?'}`;
-    default: return '';
-  }
-}
-
-function Section({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Section({ id, title, subtitle, action, children }: { id?: string; title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <section className="space-y-3">
+    <section id={id} className="scroll-mt-4 space-y-3">
       <div className="flex items-end justify-between">
         <div>
           <h2 className="text-sm font-bold text-white">{title}</h2>

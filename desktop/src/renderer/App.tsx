@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Editor, type EditorState } from './Editor';
+import { PluginsPanel } from './PluginsPanel';
 import {
   activeTab, closeTab, emptyWorkspace, newTabId, openTab, selectTab, updateTab, type Workspace,
 } from './workspace/tabs';
@@ -35,6 +36,7 @@ export default function App() {
   });
   const yamlRef = useRef<Record<string, string>>({});
   const [version, setVersion] = useState('');
+  const [showPlugins, setShowPlugins] = useState(false);
 
   useEffect(() => {
     window.loadr?.version().then(setVersion).catch(() => setVersion('loadr not found'));
@@ -84,8 +86,11 @@ export default function App() {
           <button onClick={openFile} className="rounded border border-[#232330] px-3 py-1 text-[#e5e7eb]">Open…</button>
           <button onClick={importFile} className="rounded border border-[#232330] px-3 py-1 text-[#e5e7eb]">Import…</button>
           <button onClick={duplicate} className="rounded border border-[#232330] px-3 py-1 text-[#e5e7eb]">Duplicate</button>
+          <button onClick={() => setShowPlugins(true)} className="rounded border border-[#232330] px-3 py-1 text-[#e5e7eb]">Plugins</button>
         </div>
       </header>
+
+      {showPlugins && <PluginsPanel onClose={() => setShowPlugins(false)} />}
 
       <div role="tablist" className="flex items-center gap-1 overflow-x-auto border-b border-[#232330] bg-[#0d0d12] px-2">
         {ws.tabs.map((t) => (

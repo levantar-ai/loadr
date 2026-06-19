@@ -7,7 +7,9 @@ import { join } from 'node:path';
 
 import { app, BrowserWindow, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 
-import { convert, runPlan, schema, validate, version } from './loadr';
+import {
+  convert, pluginInstall, pluginList, pluginRemove, runPlan, schema, validate, version,
+} from './loadr';
 import { addRun, type RunRecord } from '../shared/history';
 
 const isDev = !app.isPackaged;
@@ -58,6 +60,17 @@ ipcMain.handle('history:append', async (_e: IpcMainInvokeEvent, rec: RunRecord) 
   const next = addRun(await readHistory(), rec);
   await writeFile(historyFile(), JSON.stringify(next), 'utf8');
   return next;
+});
+
+// ---- IPC: plugins ---------------------------------------------------------
+ipcMain.handle('plugin:list', () => pluginList());
+ipcMain.handle('plugin:install', (_e: IpcMainInvokeEvent, a: { spec: string; allowUntrusted: boolean }) =>
+  pluginInstall(a.spec, a.allowUntrusted),
+);
+ipcMain.handle('plugin:remove', (_e: IpcMainInvokeEvent, name: string) => pluginRemove(name));
+ipcMain.handle('plugin:browseDir', async () => {
+  const r = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+  return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
 });
 
 // ---- IPC: files -----------------------------------------------------------

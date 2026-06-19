@@ -10,6 +10,7 @@ paths = [
   '''examples/.*''',          # demo workloads + their CSV/JSON feeders (fake users/tokens)
   '''testsupport/.*''',       # in-process test servers
   '''.*_test\.rs''',
+  '''crates/loadr-convert/src/har\.rs''',  # embedded fake HAR fixture for the unit tests
 ]
 # Belt-and-braces: these placeholder values appear in examples/docs.
 regexes = [
@@ -20,4 +21,8 @@ regexes = [
   '''hunter2''',
   '''letmein123''',
   '''tr0ub4dor''',
+  # Fake CSRF/UUID tokens in the HAR convert fixtures (har.rs, example.har, and
+  # earlier branch history of the from-har docs). Known-fake, not real secrets.
+  '''c2a5f1e8-9b3d-4a6c-8e21-7f0d4b9a1c33''',
+  '''3f2504e0-4f89-41d3-9a0c-0305e82c3301''',
 ]

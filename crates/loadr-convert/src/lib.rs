@@ -5,17 +5,21 @@
 //! - [`convert_jmx`] — JMeter 5.x `.jmx` test plans (the common 90% of elements).
 //! - [`convert_k6`] — k6 JavaScript scripts (options, default/scenario functions,
 //!   checks, groups, sleeps) using lightweight source analysis, no JS engine.
+//! - [`convert_har`] — HAR (HTTP Archive) recordings, with heuristic
+//!   auto-correlation of dynamic values (tokens/ids) reused across requests.
 //!
 //! Both converters are best-effort: anything they cannot represent faithfully
 //! becomes a [`ConversionWarning`] instead of a hard error, and the resulting
 //! [`loadr_config::TestPlan`] is designed to pass `loadr_config::validate`
 //! without errors.
 
+mod har;
 mod jmx;
 mod k6;
 
 use thiserror::Error;
 
+pub use har::convert_har;
 pub use jmx::convert_jmx;
 pub use k6::convert_k6;
 
@@ -58,4 +62,7 @@ pub enum ConvertError {
     /// `export const options = {...}` could not be interpreted.
     #[error("invalid k6 options: {0}")]
     Options(String),
+    /// The input is not a usable HAR (HTTP Archive) document.
+    #[error("invalid HAR: {0}")]
+    Har(String),
 }

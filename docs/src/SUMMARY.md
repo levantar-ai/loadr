@@ -71,6 +71,7 @@
 
 - [Migrating from k6](migration/from-k6.md)
 - [Migrating from JMeter](migration/from-jmeter.md)
+- [Recording a browser session (HAR)](migration/from-har.md)
 
 # Reporting
 

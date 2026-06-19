@@ -7,13 +7,13 @@ use owo_colors::OwoColorize;
 
 #[derive(Args)]
 pub struct ConvertArgs {
-    /// Source file: a JMeter .jmx plan or a k6 .js script
+    /// Source file: a JMeter .jmx plan, a k6 .js script, or a .har recording
     pub input: PathBuf,
     /// Output YAML path (default: stdout)
     #[arg(short, long)]
     pub output: Option<PathBuf>,
     /// Input kind; inferred from the extension when omitted
-    #[arg(long, value_parser = ["jmx", "k6"])]
+    #[arg(long, value_parser = ["jmx", "k6", "har"])]
     pub from: Option<String>,
 }
 
@@ -26,8 +26,9 @@ pub fn execute(args: ConvertArgs) -> anyhow::Result<i32> {
         None => match args.input.extension().and_then(|e| e.to_str()) {
             Some("jmx") | Some("xml") => "jmx".to_string(),
             Some("js") | Some("ts") | Some("mjs") => "k6".to_string(),
+            Some("har") => "har".to_string(),
             other => anyhow::bail!(
-                "cannot infer input kind from extension {:?}; pass --from jmx|k6",
+                "cannot infer input kind from extension {:?}; pass --from jmx|k6|har",
                 other
             ),
         },
@@ -36,6 +37,7 @@ pub fn execute(args: ConvertArgs) -> anyhow::Result<i32> {
     let conversion = match kind.as_str() {
         "jmx" => loadr_convert::convert_jmx(&source)?,
         "k6" => loadr_convert::convert_k6(&source)?,
+        "har" => loadr_convert::convert_har(&source)?,
         _ => unreachable!(),
     };
 

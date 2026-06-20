@@ -1,0 +1,19 @@
+{
+  "extends": "semantic-release-monorepo",
+  "branches": ["main"],
+  "tagFormat": "desktop-v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    ["@semantic-release/github", {
+      "assets": [
+        { "path": "dist/*.dmg" },
+        { "path": "dist/*-mac.zip" },
+        { "path": "dist/*.exe" },
+        { "path": "dist/*.AppImage" },
+        { "path": "dist/*.deb" },
+        { "path": "dist/latest*.yml" }
+      ]
+    }]
+  ]
+}

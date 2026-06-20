@@ -2,12 +2,12 @@
 // language here keeps every screen consistent and the feature code declarative
 // (`<Field label>… <TextInput/>`) instead of a wall of repeated Tailwind classes.
 
-import { cloneElement, isValidElement, useId } from 'react';
+import { cloneElement, isValidElement, useId, useState } from 'react';
 import type {
   ButtonHTMLAttributes, InputHTMLAttributes, ReactElement, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes,
 } from 'react';
 
-import type { Icon } from './icons';
+import { ChevronDown, ChevronRight, type Icon } from './icons';
 
 // ---- Button ---------------------------------------------------------------
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -117,6 +117,34 @@ export function Select({ className = '', children, ...props }: SelectHTMLAttribu
     <select className={`${CONTROL} cursor-pointer appearance-none bg-[length:0] pr-2 ${className}`} {...props}>
       {children}
     </select>
+  );
+}
+
+export function Checkbox({ label, checked, onChange }: { label: ReactNode; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-smoke">
+      <input type="checkbox" className="h-3.5 w-3.5 accent-ember" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {label}
+    </label>
+  );
+}
+
+// Collapsible section (native disclosure pattern) for advanced/optional fields.
+export function Disclosure({ label, children, defaultOpen = false }: { label: ReactNode; children: ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="rounded-lg border border-edge">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-1.5 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-smoke transition-colors hover:text-ash"
+      >
+        <span className="text-mist">{open ? <ChevronDown /> : <ChevronRight />}</span>
+        {label}
+      </button>
+      {open && <div className="space-y-3 border-t border-edge p-3">{children}</div>}
+    </div>
   );
 }
 

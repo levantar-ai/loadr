@@ -40,6 +40,16 @@ function composeAllKinds(): Plan {
   const idx = (k: string) => STEP_KINDS.indexOf(k as never);
 
   plan = setIn(plan, at(idx('request'), 'request', 'url'), '/home');
+  plan = setIn(plan, at(idx('request'), 'request', 'assert'), [
+    { type: 'status', equals: 200 },
+    { type: 'jsonpath', expression: '$.id', exists: true },
+  ]);
+  plan = setIn(plan, at(idx('request'), 'request', 'checks'), [{ type: 'duration', max: '500ms' }]);
+  plan = setIn(plan, at(idx('request'), 'request', 'extract'), [
+    { type: 'jsonpath', name: 'id', expression: '$.id' },
+    { type: 'regex', name: 'tok', expression: 't=(\\w+)', group: 1 },
+  ]);
+  plan = setIn(plan, at(idx('request'), 'request', 'timeout'), '5s');
   plan = setIn(plan, at(idx('js'), 'js'), 'session.vars.x = 1');
   plan = setIn(plan, at(idx('foreach'), 'foreach', 'items'), '${users}');
   plan = setIn(plan, at(idx('foreach'), 'foreach', 'steps'), [{ request: { url: '/u' } }]);

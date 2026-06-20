@@ -26,7 +26,7 @@ import type { PlanDoc } from '../state/usePlanDoc';
 import { useSelection } from '../state/selection';
 import { dragEndIndices } from './dnd';
 import {
-  Badge, Button, Field, IconButton, NumberInput, Select, Textarea, TextInput,
+  Badge, Button, Checkbox, Disclosure, Field, IconButton, NumberInput, Select, Textarea, TextInput,
 } from '../ui/controls';
 import {
   ArrowDown, ArrowUp, ChevronDown, ChevronRight, Grip, Plus, STEP_ICON, Trash, type Icon,
@@ -260,6 +260,21 @@ function StepFields({
           <Field label="Body" hint="raw string or ${...} template">
             <Textarea rows={3} value={typeof body.body === 'string' ? body.body : body.body == null ? '' : JSON.stringify(body.body, null, 2)} placeholder={'{ "email": "${user.email}" }'} onChange={(e) => set('body', e.target.value || undefined)} />
           </Field>
+          <Disclosure label={`Assertions, checks & extracts${advancedCount(body)}`}>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Timeout" hint="per-request override"><TextInput value={(body.timeout as string) ?? ''} placeholder="5s" onChange={(e) => set('timeout', e.target.value || undefined)} /></Field>
+              <Field label="Follow redirects">
+                <Select value={body.follow_redirects == null ? '' : String(body.follow_redirects)} onChange={(e) => set('follow_redirects', e.target.value === '' ? undefined : e.target.value === 'true')}>
+                  <option value="">default</option>
+                  <option value="true">yes</option>
+                  <option value="false">no</option>
+                </Select>
+              </Field>
+            </div>
+            <ConditionsEditor doc={doc} path={[...base, 'assert']} items={arr(body.assert) as Cond[]} label="Assertions" hint="failures mark the request failed" />
+            <ConditionsEditor doc={doc} path={[...base, 'checks']} items={arr(body.checks) as Cond[]} label="Checks" hint="recorded to the checks metric, never fail the request" />
+            <ExtractorsEditor doc={doc} path={[...base, 'extract']} items={arr(body.extract) as Record<string, unknown>[]} />
+          </Disclosure>
         </div>
       );
 
@@ -543,6 +558,196 @@ function KeyValueEditor({
       </div>
     </div>
   );
+}
+
+// ---- request assertions / checks / extractors -----------------------------
+type Cond = Record<string, unknown>;
+
+const CONDITION_TYPES = ['status', 'jsonpath', 'body_contains', 'body_matches', 'header', 'duration', 'size', 'xpath', 'js'] as const;
+const CONDITION_SEED: Record<string, Cond> = {
+  status: { type: 'status', equals: 200 },
+  jsonpath: { type: 'jsonpath', expression: '$.' },
+  body_contains: { type: 'body_contains', value: '' },
+  body_matches: { type: 'body_matches', pattern: '' },
+  header: { type: 'header', header: '' },
+  duration: { type: 'duration', max: '500ms' },
+  size: { type: 'size' },
+  xpath: { type: 'xpath', expression: '' },
+  js: { type: 'js', expression: '' },
+};
+
+function advancedCount(body: Record<string, unknown>): string {
+  const n = arr(body.assert).length + arr(body.checks).length + arr(body.extract).length
+    + (body.timeout ? 1 : 0) + (body.follow_redirects != null ? 1 : 0);
+  return n ? ` · ${n}` : '';
+}
+
+function ConditionsEditor({ doc, path, items, label, hint }: { doc: PlanDoc; path: Path; items: Cond[]; label: string; hint?: string }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-end justify-between">
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-mist">{label} · {items.length}</span>
+          {hint && <p className="text-[11px] text-mist">{hint}</p>}
+        </div>
+        <Button size="sm" icon={Plus} onClick={() => doc.apply((p) => appendTo(p, path, { ...CONDITION_SEED.status }))}>{label.replace(/s$/, '')}</Button>
+      </div>
+      {items.map((c, i) => {
+        const t = (c.type as string) || 'status';
+        const set = (k: string, v: unknown) => doc.update([...path, i, k], v);
+        return (
+          <div key={i} className="space-y-2 rounded-lg border border-edge bg-coal p-2">
+            <div className="grid grid-cols-[8rem_1fr_2rem] items-end gap-2">
+              <Field label="Type"><Select value={t} onChange={(e) => doc.update([...path, i], { ...CONDITION_SEED[e.target.value] } as unknown as Json)}>{CONDITION_TYPES.map((x) => <option key={x} value={x}>{x}</option>)}</Select></Field>
+              <Field label="Label (optional)"><TextInput value={(c.name as string) ?? ''} onChange={(e) => set('name', e.target.value || undefined)} /></Field>
+              <IconButton icon={Trash} tone="danger" label={`remove ${label} ${i + 1}`} onClick={() => doc.apply((p) => deleteIn(p, [...path, i]))} />
+            </div>
+            <ConditionFields t={t} c={c} set={set} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ConditionFields({ t, c, set }: { t: string; c: Cond; set: (k: string, v: unknown) => void }) {
+  switch (t) {
+    case 'status':
+      return (
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Equals" hint="exact status"><NumField value={c.equals as number} onChange={(v) => set('equals', v)} /></Field>
+          <Field label="Matches" hint="regex e.g. 2.."><TextInput value={(c.matches as string) ?? ''} onChange={(e) => set('matches', e.target.value || undefined)} /></Field>
+        </div>
+      );
+    case 'jsonpath':
+    case 'xpath':
+      return (
+        <div className="space-y-2">
+          <Field label="Expression"><TextInput value={(c.expression as string) ?? ''} placeholder={t === 'jsonpath' ? '$.data.id' : '//div[@id]'} onChange={(e) => set('expression', e.target.value)} /></Field>
+          <div className="grid grid-cols-[1fr_auto] items-center gap-3">
+            <Field label="Equals (optional)"><TextInput value={(c.equals as string) ?? ''} onChange={(e) => set('equals', e.target.value || undefined)} /></Field>
+            <Checkbox label="must exist" checked={!!c.exists} onChange={(v) => set('exists', v || undefined)} />
+          </div>
+        </div>
+      );
+    case 'body_contains':
+      return (
+        <div className="space-y-2">
+          <Field label="Value"><TextInput value={(c.value as string) ?? ''} onChange={(e) => set('value', e.target.value)} /></Field>
+          <Checkbox label="negate (must NOT contain)" checked={!!c.negate} onChange={(v) => set('negate', v || undefined)} />
+        </div>
+      );
+    case 'body_matches':
+      return (
+        <div className="space-y-2">
+          <Field label="Pattern"><TextInput value={(c.pattern as string) ?? ''} placeholder={'"id":\\s*\\d+'} onChange={(e) => set('pattern', e.target.value)} /></Field>
+          <Checkbox label="negate (must NOT match)" checked={!!c.negate} onChange={(v) => set('negate', v || undefined)} />
+        </div>
+      );
+    case 'header':
+      return (
+        <div className="space-y-2">
+          <Field label="Header"><TextInput value={(c.header as string) ?? ''} placeholder="Content-Type" onChange={(e) => set('header', e.target.value)} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Equals"><TextInput value={(c.equals as string) ?? ''} onChange={(e) => set('equals', e.target.value || undefined)} /></Field>
+            <Field label="Contains"><TextInput value={(c.contains as string) ?? ''} onChange={(e) => set('contains', e.target.value || undefined)} /></Field>
+          </div>
+          <Checkbox label="must exist" checked={!!c.exists} onChange={(v) => set('exists', v || undefined)} />
+        </div>
+      );
+    case 'duration':
+      return <Field label="Max" hint="e.g. 500ms"><TextInput value={(c.max as string) ?? ''} placeholder="500ms" onChange={(e) => set('max', e.target.value)} /></Field>;
+    case 'size':
+      return (
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Min"><NumField value={c.min as number} onChange={(v) => set('min', v)} /></Field>
+          <Field label="Max"><NumField value={c.max as number} onChange={(v) => set('max', v)} /></Field>
+          <Field label="Equals"><NumField value={c.equals as number} onChange={(v) => set('equals', v)} /></Field>
+        </div>
+      );
+    case 'js':
+      return <Field label="Expression" hint="truthy passes; `response` is in scope"><TextInput value={(c.expression as string) ?? ''} placeholder="http.json().ok === true" onChange={(e) => set('expression', e.target.value)} /></Field>;
+    default:
+      return null;
+  }
+}
+
+const EXTRACTOR_TYPES = ['jsonpath', 'regex', 'xpath', 'css', 'boundary', 'header'] as const;
+const EXTRACTOR_SEED: Record<string, Cond> = {
+  jsonpath: { type: 'jsonpath', name: '', expression: '$.' },
+  regex: { type: 'regex', name: '', expression: '' },
+  xpath: { type: 'xpath', name: '', expression: '' },
+  css: { type: 'css', name: '', expression: '' },
+  boundary: { type: 'boundary', name: '', left: '', right: '' },
+  header: { type: 'header', name: '', header: '' },
+};
+
+function ExtractorsEditor({ doc, path, items }: { doc: PlanDoc; path: Path; items: Record<string, unknown>[] }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-mist">Extract · {items.length}</span>
+        <Button size="sm" icon={Plus} onClick={() => doc.apply((p) => appendTo(p, path, { ...EXTRACTOR_SEED.jsonpath }))}>Extractor</Button>
+      </div>
+      {items.map((x, i) => {
+        const t = (x.type as string) || 'jsonpath';
+        const set = (k: string, v: unknown) => doc.update([...path, i, k], v);
+        return (
+          <div key={i} className="space-y-2 rounded-lg border border-edge bg-coal p-2">
+            <div className="grid grid-cols-[8rem_1fr_2rem] items-end gap-2">
+              <Field label="Type"><Select value={t} onChange={(e) => doc.update([...path, i], { ...EXTRACTOR_SEED[e.target.value], name: x.name ?? '' } as unknown as Json)}>{EXTRACTOR_TYPES.map((k) => <option key={k} value={k}>{k}</option>)}</Select></Field>
+              <Field label="Save as (var)"><TextInput value={(x.name as string) ?? ''} placeholder="token" onChange={(e) => set('name', e.target.value)} /></Field>
+              <IconButton icon={Trash} tone="danger" label={`remove extractor ${i + 1}`} onClick={() => doc.apply((p) => deleteIn(p, [...path, i]))} />
+            </div>
+            <ExtractorFields t={t} x={x} set={set} />
+            <Field label="Default (optional)" hint="used when nothing matches"><TextInput value={(x.default as string) ?? ''} onChange={(e) => set('default', e.target.value || undefined)} /></Field>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function ExtractorFields({ t, x, set }: { t: string; x: Cond; set: (k: string, v: unknown) => void }) {
+  switch (t) {
+    case 'jsonpath':
+      return (
+        <div className="grid grid-cols-[1fr_5rem] gap-2">
+          <Field label="Expression"><TextInput value={(x.expression as string) ?? ''} placeholder="$.token" onChange={(e) => set('expression', e.target.value)} /></Field>
+          <Field label="Index"><NumField value={x.index as number} onChange={(v) => set('index', v)} /></Field>
+        </div>
+      );
+    case 'regex':
+      return (
+        <div className="grid grid-cols-[1fr_5rem_5rem] gap-2">
+          <Field label="Expression"><TextInput value={(x.expression as string) ?? ''} placeholder="token=(\\w+)" onChange={(e) => set('expression', e.target.value)} /></Field>
+          <Field label="Group"><NumField value={x.group as number} onChange={(v) => set('group', v)} /></Field>
+          <Field label="Index"><NumField value={x.index as number} onChange={(v) => set('index', v)} /></Field>
+        </div>
+      );
+    case 'xpath':
+      return <Field label="Expression"><TextInput value={(x.expression as string) ?? ''} placeholder="//token/text()" onChange={(e) => set('expression', e.target.value)} /></Field>;
+    case 'css':
+      return (
+        <div className="grid grid-cols-[1fr_7rem_5rem] gap-2">
+          <Field label="Selector"><TextInput value={(x.expression as string) ?? ''} placeholder="input#csrf" onChange={(e) => set('expression', e.target.value)} /></Field>
+          <Field label="Attribute"><TextInput value={(x.attribute as string) ?? ''} placeholder="value" onChange={(e) => set('attribute', e.target.value || undefined)} /></Field>
+          <Field label="Index"><NumField value={x.index as number} onChange={(v) => set('index', v)} /></Field>
+        </div>
+      );
+    case 'boundary':
+      return (
+        <div className="grid grid-cols-[1fr_1fr_5rem] gap-2">
+          <Field label="Left"><TextInput value={(x.left as string) ?? ''} placeholder="token=" onChange={(e) => set('left', e.target.value)} /></Field>
+          <Field label="Right"><TextInput value={(x.right as string) ?? ''} placeholder="&" onChange={(e) => set('right', e.target.value)} /></Field>
+          <Field label="Index"><NumField value={x.index as number} onChange={(v) => set('index', v)} /></Field>
+        </div>
+      );
+    case 'header':
+      return <Field label="Header"><TextInput value={(x.header as string) ?? ''} placeholder="Set-Cookie" onChange={(e) => set('header', e.target.value)} /></Field>;
+    default:
+      return null;
+  }
 }
 
 function Section({ id, title, subtitle, action, children }: { id?: string; title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {

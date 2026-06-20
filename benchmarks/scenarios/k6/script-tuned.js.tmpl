@@ -10,7 +10,8 @@ import http from 'k6/http';
 //                           large payloads; negligible on tiny ones).
 //   systemTags            — emit only the tags we report on, trimming the
 //                           per-sample metric cost.
-//   (run with --compatibility-mode=base --no-usage-report — see run.sh)
+//   (run with --no-thresholds --no-usage-report — see run.sh. NOTE:
+//   --compatibility-mode=base is a no-op on k6 ≥0.53 and was dropped.)
 //
 // The real lever for k6 throughput on this hardware is running MULTIPLE k6
 // processes (k6's per-process metrics engine has a single-goroutine ceiling)

@@ -28,7 +28,7 @@ JMETER_IMAGE="${JMETER_IMAGE:-justb4/jmeter:5.5}"
 MAVEN_IMAGE="${MAVEN_IMAGE:-maven:3.9-eclipse-temurin-21}"
 
 RESULTS="$ROOT/results"
-rm -rf "$RESULTS"; mkdir -p "$RESULTS"/{loadr,k6,k6-tuned,locust,jmeter,gatling}
+rm -rf "$RESULTS"; mkdir -p "$RESULTS"/{loadr,k6,k6-tuned,locust,locust-tuned,jmeter,jmeter-tuned,gatling}
 # Run tool containers as the host user so files written to the mounted result
 # dirs are owned by us (and writable / cleanable next run).
 DUSER="$(id -u):$(id -g)"
@@ -56,8 +56,10 @@ SUBST='${BENCH_URL} ${BENCH_VUS} ${BENCH_DURATION}'
 envsubst "$SUBST" < scenarios/loadr/plan.yaml.tmpl > "$RESULTS/loadr/plan.yaml"
 envsubst "$SUBST" < scenarios/k6/script.js.tmpl       > "$RESULTS/k6/script.js"
 envsubst "$SUBST" < scenarios/k6/script-tuned.js.tmpl > "$RESULTS/k6-tuned/script.js"
-cp scenarios/locust/locustfile.py "$RESULTS/locust/"
-cp scenarios/jmeter/plan.jmx      "$RESULTS/jmeter/"
+cp scenarios/locust/locustfile.py        "$RESULTS/locust/"
+cp scenarios/locust/locustfile-tuned.py  "$RESULTS/locust-tuned/"
+cp scenarios/jmeter/plan.jmx             "$RESULTS/jmeter/"
+cp scenarios/jmeter/plan.jmx scenarios/jmeter/user.properties "$RESULTS/jmeter-tuned/"
 
 ran=()
 fail=()
@@ -89,10 +91,11 @@ run_k6() {
     run --vus "$VUS" --duration "$DURATION" --summary-export=summary.json script.js
 }
 
-# Tuned k6: discard bodies, minimal tags, base compat mode, no usage report.
+# Tuned k6: discard bodies + minimal tags (in the script), no thresholds, no
+# usage report. (--compatibility-mode=base is a no-op on k6 ≥0.53, so dropped.)
 run_k6_tuned() {
   docker run --rm --network host --user "$DUSER" -v "$RESULTS/k6-tuned:/work" -w /work "$K6_IMAGE" \
-    run --vus "$VUS" --duration "$DURATION" --compatibility-mode=base --no-usage-report \
+    run --vus "$VUS" --duration "$DURATION" --no-thresholds --no-usage-report \
     --summary-export=summary.json script.js
 }
 
@@ -102,9 +105,26 @@ run_locust() {
     --host "$HOST_URL" --csv locust --only-summary
 }
 
+# Tuned Locust: FastHttpUser + one worker process per core (--processes -1).
+run_locust_tuned() {
+  docker run --rm --network host --user "$DUSER" -e HOME=/tmp -v "$RESULTS/locust-tuned:/work" -w /work "$LOCUST_IMAGE" \
+    -f locustfile-tuned.py --headless --processes -1 -u "$VUS" -r "$VUS" -t "$DURATION" \
+    --host "$HOST_URL" --csv locust --only-summary --loglevel WARNING
+}
+
 run_jmeter() {
   docker run --rm --network host --user "$DUSER" -v "$RESULTS/jmeter:/work" -w /work "$JMETER_IMAGE" \
     -n -t plan.jmx -l result.jtl \
+    -Jthreads="$VUS" -Jrampup=0 -Jduration="$DURATION_S" \
+    -Jhost=localhost -Jport=18080 -Jpath=/json
+}
+
+# Tuned JMeter: connection reuse across iterations + trimmed JTL (user.properties)
+# and a fixed 2G heap (JVM_XMS/JVM_XMX, in MB, read by the image entrypoint).
+run_jmeter_tuned() {
+  docker run --rm --network host --user "$DUSER" -e JVM_XMS=2048 -e JVM_XMX=2048 \
+    -v "$RESULTS/jmeter-tuned:/work" -w /work "$JMETER_IMAGE" \
+    -n -t plan.jmx -q user.properties -l result.jtl \
     -Jthreads="$VUS" -Jrampup=0 -Jduration="$DURATION_S" \
     -Jhost=localhost -Jport=18080 -Jpath=/json
 }
@@ -126,12 +146,14 @@ run_gatling() {
 
 for t in $TOOLS; do
   case "$t" in
-    loadr)   runtool loadr    run_loadr ;;
-    k6)      runtool k6       run_k6 ;;
-    k6-tuned) runtool k6-tuned run_k6_tuned ;;
-    locust)  runtool locust  run_locust ;;
-    jmeter)  runtool jmeter  run_jmeter ;;
-    gatling) runtool gatling run_gatling ;;
+    loadr)         runtool loadr         run_loadr ;;
+    k6)            runtool k6            run_k6 ;;
+    k6-tuned)      runtool k6-tuned      run_k6_tuned ;;
+    locust)        runtool locust        run_locust ;;
+    locust-tuned)  runtool locust-tuned  run_locust_tuned ;;
+    jmeter)        runtool jmeter        run_jmeter ;;
+    jmeter-tuned)  runtool jmeter-tuned  run_jmeter_tuned ;;
+    gatling)       runtool gatling       run_gatling ;;
     *) echo "unknown tool: $t" ;;
   esac
 done

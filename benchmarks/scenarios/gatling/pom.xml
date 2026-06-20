@@ -30,6 +30,19 @@
         <groupId>io.gatling</groupId>
         <artifactId>gatling-maven-plugin</artifactId>
         <version>${gatling-maven-plugin.version}</version>
+        <configuration>
+          <!-- The plugin forks the test JVM, so MAVEN_OPTS/JAVA_OPTS do NOT
+               reach it; JVM args must go here. A fixed, pre-touched G1 heap
+               (vs the default -Xmx1G) cuts GC churn and warmup volatility at
+               high RPS. Appended after Gatling's good defaults (-server,
+               -XX:MaxInlineLevel=20, …). -->
+          <jvmArgs>
+            <jvmArg>-Xms2G</jvmArg>
+            <jvmArg>-Xmx2G</jvmArg>
+            <jvmArg>-XX:+UseG1GC</jvmArg>
+            <jvmArg>-XX:+AlwaysPreTouch</jvmArg>
+          </jvmArgs>
+        </configuration>
       </plugin>
     </plugins>
   </build>

@@ -74,8 +74,8 @@ def parse_k6_tuned(d):
     return parse_k6(d, sub="k6-tuned", tool="k6-tuned")
 
 
-def parse_locust(d):
-    f = os.path.join(d, "locust", "locust_stats.csv")
+def parse_locust(d, sub="locust", tool="locust"):
+    f = os.path.join(d, sub, "locust_stats.csv")
     if not os.path.exists(f):
         return None
     row = None
@@ -91,12 +91,16 @@ def parse_locust(d):
         return None
     total = int(g("Request Count") or 0)
     errors = int(g("Failure Count") or 0)
-    return rec("locust", total, errors, g("Requests/s"),
+    return rec(tool, total, errors, g("Requests/s"),
                g("50%", "Median Response Time"), g("95%"), g("99%"))
 
 
-def parse_jmeter(d):
-    f = os.path.join(d, "jmeter", "result.jtl")
+def parse_locust_tuned(d):
+    return parse_locust(d, sub="locust-tuned", tool="locust-tuned")
+
+
+def parse_jmeter(d, sub="jmeter", tool="jmeter"):
+    f = os.path.join(d, sub, "result.jtl")
     if not os.path.exists(f):
         return None
     elapsed, errors, total = [], 0, 0
@@ -115,7 +119,11 @@ def parse_jmeter(d):
         tmax = (ts + e) if tmax is None else max(tmax, ts + e)
     wall = ((tmax - tmin) / 1000.0) if (tmin is not None and tmax) else None
     rps = (total / wall) if wall else None
-    return rec("jmeter", total, errors, rps, pct(elapsed, 50), pct(elapsed, 95), pct(elapsed, 99))
+    return rec(tool, total, errors, rps, pct(elapsed, 50), pct(elapsed, 95), pct(elapsed, 99))
+
+
+def parse_jmeter_tuned(d):
+    return parse_jmeter(d, sub="jmeter-tuned", tool="jmeter-tuned")
 
 
 def parse_gatling(d):
@@ -131,7 +139,8 @@ def parse_gatling(d):
 
 
 def main():
-    parsers = [parse_loadr, parse_k6, parse_k6_tuned, parse_jmeter, parse_gatling, parse_locust]
+    parsers = [parse_loadr, parse_k6, parse_k6_tuned, parse_jmeter, parse_jmeter_tuned,
+               parse_gatling, parse_locust, parse_locust_tuned]
     records = [r for r in (p(RESULTS) for p in parsers) if r]
     json.dump(records, open(os.path.join(RESULTS, "summary.json"), "w"), indent=2)
 

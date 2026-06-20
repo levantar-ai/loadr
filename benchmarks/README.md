@@ -80,8 +80,10 @@ artifact.
 
 - **Out-of-the-box, not tuned.** Each tool runs with stock settings — the point
   is a like-for-like default comparison, not each tool's theoretical maximum. We
-  *did* try to tune k6 (a committed `k6-tuned` variant + an experiment ladder):
-  it buys ~10%, then hits k6's own CPU ceiling. See [`TUNING.md`](TUNING.md).
+  also researched and committed **tuned** variants (`k6-tuned`, `jmeter-tuned`,
+  `locust-tuned`, Gatling heap) — Locust gains **~14×**, the rest are near their
+  ceiling here. Per-tool config + measured impact: [`CONFIGURATION.md`](CONFIGURATION.md);
+  the k6 deep-dive: [`TUNING.md`](TUNING.md).
 - **Locust** is single-process here; its throughput ceiling (and the latency that
   implies) reflects one Python worker, which is how most people first run it.
   Distributed Locust workers would change that — a future benchmark.

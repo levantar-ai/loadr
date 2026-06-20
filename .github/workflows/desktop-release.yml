@@ -59,6 +59,11 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      # 'yes' only when a real signing cert is configured. Passing empty CSC_*
+      # makes electron-builder attempt a failing ad-hoc macOS sign, so the
+      # unsigned path must pass no CSC_* at all.
+      SIGN: ${{ secrets.CSC_LINK != '' && 'yes' || 'no' }}
     permissions:
       contents: read
       id-token: write   # SLSA provenance attestation
@@ -78,7 +83,8 @@ jobs:
         run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
       - run: npm ci
         working-directory: desktop
-      - name: Package (signed when secrets present)
+      - name: Package — signed (cert secrets present)
+        if: env.SIGN == 'yes'
         working-directory: desktop
         env:
           GH_TOKEN: ${{ secrets.PAT_TOKEN }}
@@ -87,9 +93,13 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Without a real cert, skip macOS signing (an empty CSC_LINK otherwise
-          # triggers a failing ad-hoc sign). When the secret is set, sign.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.CSC_LINK != '' }}
+        run: npm run package
+      - name: Package — unsigned (no cert)
+        if: env.SIGN == 'no'
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false' # don't ad-hoc sign macOS
         run: npm run package
       - name: Attest provenance
         uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3

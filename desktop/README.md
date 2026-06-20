@@ -22,9 +22,11 @@ Stack: Electron + TypeScript, React 19 + Vite 6 + Tailwind 4 (renderer), Vitest
 - [x] **M3** — drag-and-drop composition + tabs + manage/import
 - [x] **M4** — run + live metrics + results + history/compare
 - [x] **M5** — plugins panel
-- [~] **M6** — electron-builder packaging + CI matrix + Playwright-for-Electron
-  acceptance suite (authored; runs in CI under xvfb — see note below)
-- [ ] M7 — semantic-release + signed multi-platform artifacts
+- [x] **M6** — electron-builder packaging + CI matrix + Playwright-for-Electron
+  acceptance suite (merged; runs in CI under xvfb — see note below)
+- [x] **M7** — semantic-release (`desktop-v*` tags, scoped via
+  semantic-release-monorepo) + signed multi-platform installers with SLSA
+  provenance (`.github/workflows/desktop-release.yml`, `.releaserc.json`)
 - [x] **Composer polish** — brand design system (shared loadr palette + UI
   primitives), **optional** YAML view (Form / Split / YAML toggle, forms-first),
   and **real forms for every step kind** with recursive nested-step editors

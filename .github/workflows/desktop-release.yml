@@ -1,0 +1,129 @@
+name: Desktop Release
+
+# semantic-release decides the next desktop version from Conventional Commits
+# (scoped to desktop/ via semantic-release-monorepo), the matrix builds signed
+# installers with SLSA provenance, and the release job publishes a
+# `desktop-v*` GitHub release with the installers attached.
+#
+# The enterprise forces GITHUB_TOKEN to read-only, so anything that writes
+# (tags/releases) uses the PAT_TOKEN secret. Code-signing / notarization apply
+# only when the signing secrets are present; otherwise builds are unsigned.
+
+on:
+  push:
+    branches: [main]
+    paths: ['desktop/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: plan release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with: { egress-policy: audit }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: desktop
+      - id: v
+        working-directory: desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          out="$(npx semantic-release --dry-run -e semantic-release-monorepo 2>&1)" || true
+          echo "$out"
+          ver="$(printf '%s\n' "$out" | sed -nE 's/.*next release version is ([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' | head -1)"
+          if [ -n "$ver" ]; then
+            echo "version=$ver" >> "$GITHUB_OUTPUT"; echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  package:
+    name: build installers (${{ matrix.os }})
+    needs: plan
+    if: needs.plan.outputs.publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write   # SLSA provenance attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9 # stable
+        with: { toolchain: stable }
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - run: cargo build --release -p loadr-cli
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with: { node-version: 22 }
+      - name: Set version
+        working-directory: desktop
+        env:
+          V: ${{ needs.plan.outputs.version }}
+        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json'));p.version=process.env.V;fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+      - run: npm ci
+        working-directory: desktop
+      - name: Package (signed when secrets present)
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run package
+      - name: Attest provenance
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+        with:
+          subject-path: 'desktop/dist/*.{dmg,exe,AppImage,deb,zip}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: installers-${{ matrix.os }}
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+            desktop/dist/latest*.yml
+          if-no-files-found: ignore
+
+  release:
+    name: semantic-release
+    needs: [plan, package]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with: { egress-policy: audit }
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with: { node-version: 22 }
+      - run: npm ci
+        working-directory: desktop
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with: { path: desktop/dist, merge-multiple: true }
+      - name: Publish desktop-v release
+        working-directory: desktop
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: npx semantic-release -e semantic-release-monorepo

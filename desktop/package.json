@@ -4,7 +4,10 @@
   "description": "loadr Desktop — a GUI for composing, managing and running loadr test plans",
   "private": true,
   "main": "out/main/index.js",
-  "author": "loadr",
+  "author": {
+    "name": "loadr",
+    "email": "noreply@loadr.io"
+  },
   "license": "Elastic-2.0",
   "repository": {
     "type": "git",

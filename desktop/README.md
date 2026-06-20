@@ -8,6 +8,14 @@ the GUI and the CLI can never disagree about what a plan means.
 Stack: Electron + TypeScript, React 19 + Vite 6 + Tailwind 4 (renderer), Vitest
 (unit), Playwright-for-Electron (e2e), electron-builder (packaging).
 
+![loadr Desktop — compose, outline, run dashboard](docs/demo.gif)
+
+> The demo above is generated from the real app driven by Playwright (see
+> `e2e/screenshots.mjs` + `e2e/run-shots.mjs`): launch → compose → outline →
+> live run dashboard. Regenerate with `node e2e/screenshots.mjs` then assemble
+> with ImageMagick. A continuous screen recording needs a display; CI is
+> headless (xvfb), so the committed demo is the frame-assembled GIF.
+
 ## Status — built in milestones (see `goals/desktop-gui/`)
 - [x] **M1** — scaffold, secure IPC, bundled-loadr bridge, open-YAML→render, round-trip tests
 - [x] **M2** — schema-shaped form editor + Monaco two-way sync

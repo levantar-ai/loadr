@@ -55,6 +55,36 @@
   </div>
 </section>
 
+<!-- ======================================================= DESKTOP APP -->
+<section id="desktop" class="border-t border-edge/60 py-16">
+  <div class="mx-auto max-w-6xl px-5">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="kicker">Desktop app</p>
+        <h2 class="mt-3 text-3xl font-extrabold tracking-tight text-white">
+          loadr Desktop
+          <span class="ml-1 rounded-full border border-ember/40 bg-ember/10 px-2 py-0.5 align-middle text-[10px] font-bold uppercase text-flare">Beta</span>
+        </h2>
+        <p class="mt-3 max-w-2xl text-smoke">
+          A GUI for composing, managing and running test plans, with a live monitoring dashboard — a
+          front-end over the same loadr engine, so the app and the CLI can never disagree.
+          <a class="font-semibold text-flare hover:underline" href="/docs/desktop.html">Learn more →</a>
+        </p>
+      </div>
+      <span id="desktop-version" class="rounded-full border border-edge bg-panel px-3 py-1 font-mono text-sm text-flare">desktop</span>
+    </div>
+    <div id="desktop-grid" class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="col-span-full rounded-2xl border border-edge bg-panel px-6 py-10 text-center text-smoke">
+        Loading the desktop release…
+      </div>
+    </div>
+    <p class="mt-6 text-sm text-smoke">
+      Builds are unsigned for now — on macOS, right-click → Open the first time; on Windows, “More info → Run anyway”.
+      Verify provenance the same way as the CLI (above).
+    </p>
+  </div>
+</section>
+
 <!-- ======================================================= VERIFY -->
 <section class="border-t border-edge/60 bg-coal/50 py-20">
   <div class="mx-auto max-w-5xl px-5">
@@ -140,6 +170,7 @@ $ loadr version</code></pre>
           <li><a class="hover:text-flare" href="/#protocols">Protocols</a></li>
           <li><a class="hover:text-flare" href="/#distributed">Distributed</a></li>
           <li><a class="hover:text-flare" href="/#webui">Web UI</a></li>
+          <li><a class="hover:text-flare" href="/download/#desktop">Desktop app</a></li>
           <li><a class="hover:text-flare" href="/plugins/">Plugins</a></li>
           <li><a class="hover:text-flare" href="/download/">Download</a></li>
         </ul>
@@ -290,6 +321,44 @@ $ loadr version</code></pre>
       var v = document.getElementById("dl-version");
       if (v) v.textContent = "latest";
     });
+
+  // ---- loadr Desktop: render from the newest `desktop-v*` release. The CLI
+  // owns releases/latest, so we find the desktop release explicitly and hide the
+  // whole section if there isn't one (or the API is blocked).
+  var dgrid = document.getElementById("desktop-grid");
+  if (dgrid) {
+    var DPLATFORMS = [
+      { icon: "apple",   os: "macOS",   arch: "Apple Silicon", test: function (n) { return /-arm64\.dmg$/i.test(n); } },
+      { icon: "apple",   os: "macOS",   arch: "Intel",         test: function (n) { return /\.dmg$/i.test(n) && !/arm64/i.test(n); } },
+      { icon: "windows", os: "Windows", arch: "Installer",     test: function (n) { return /setup.*\.exe$/i.test(n); } },
+      { icon: "linux",   os: "Linux",   arch: "AppImage",      test: function (n) { return /\.AppImage$/i.test(n); } },
+      { icon: "linux",   os: "Linux",   arch: ".deb (x86-64)", test: function (n) { return /\.deb$/i.test(n); } }
+    ];
+    var hideDesktop = function () { var s = document.getElementById("desktop"); if (s) s.style.display = "none"; };
+
+    fetch("https://api.github.com/repos/" + REPO + "/releases?per_page=30", { headers: { Accept: "application/vnd.github+json" } })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (list) {
+        var rel = (list || []).filter(function (x) {
+          return x.tag_name && x.tag_name.indexOf("desktop-v") === 0 && !x.draft && !x.prerelease;
+        })[0];
+        if (!rel) throw new Error("no desktop release");
+        dgrid.innerHTML = "";
+        var found = 0;
+        DPLATFORMS.forEach(function (d) {
+          var a = (rel.assets || []).filter(function (x) { return d.test(x.name); })[0];
+          if (!a) return;
+          found++;
+          var sha = (a.digest || "").replace(/^sha256:/, "");
+          dgrid.appendChild(card({ icon: d.icon, os: d.os, arch: d.arch, file: a.name }, { url: a.browser_download_url, sha: sha, bytes: a.size }));
+        });
+        if (!found) throw new Error("no desktop assets");
+        wireCopy(dgrid);
+        var dv = document.getElementById("desktop-version");
+        if (dv && rel.tag_name) dv.textContent = rel.tag_name.replace(/^desktop-/, "");
+      })
+      .catch(hideDesktop);
+  }
 })();
 </script>
 </body>

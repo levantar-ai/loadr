@@ -6,6 +6,7 @@
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
     ["@semantic-release/github", {
+      "makeLatest": false,
       "assets": [
         { "path": "dist/*.dmg" },
         { "path": "dist/*-mac.zip" },

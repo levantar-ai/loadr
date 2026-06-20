@@ -53,8 +53,8 @@ def parse_loadr(d):
                dur.get("med"), dur.get("p95"), dur.get("p99"))
 
 
-def parse_k6(d):
-    f = os.path.join(d, "k6", "summary.json")
+def parse_k6(d, sub="k6", tool="k6"):
+    f = os.path.join(d, sub, "summary.json")
     if not os.path.exists(f):
         return None
     m = json.load(open(f))["metrics"]
@@ -66,8 +66,12 @@ def parse_k6(d):
     # count the rate's true/false samples — `fails` = the OK requests — so they
     # must NOT be read as the error count.)
     errors = round(failed.get("value", failed.get("rate", 0)) * total)
-    return rec("k6", total, errors, reqs.get("rate"),
+    return rec(tool, total, errors, reqs.get("rate"),
                dur.get("med"), dur.get("p(95)"), dur.get("p(99)"))
+
+
+def parse_k6_tuned(d):
+    return parse_k6(d, sub="k6-tuned", tool="k6-tuned")
 
 
 def parse_locust(d):
@@ -127,7 +131,7 @@ def parse_gatling(d):
 
 
 def main():
-    parsers = [parse_loadr, parse_k6, parse_jmeter, parse_gatling, parse_locust]
+    parsers = [parse_loadr, parse_k6, parse_k6_tuned, parse_jmeter, parse_gatling, parse_locust]
     records = [r for r in (p(RESULTS) for p in parsers) if r]
     json.dump(records, open(os.path.join(RESULTS, "summary.json"), "w"), indent=2)
 

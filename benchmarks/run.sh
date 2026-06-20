@@ -28,7 +28,7 @@ JMETER_IMAGE="${JMETER_IMAGE:-justb4/jmeter:5.5}"
 MAVEN_IMAGE="${MAVEN_IMAGE:-maven:3.9-eclipse-temurin-21}"
 
 RESULTS="$ROOT/results"
-rm -rf "$RESULTS"; mkdir -p "$RESULTS"/{loadr,k6,locust,jmeter,gatling}
+rm -rf "$RESULTS"; mkdir -p "$RESULTS"/{loadr,k6,k6-tuned,locust,jmeter,gatling}
 # Run tool containers as the host user so files written to the mounted result
 # dirs are owned by us (and writable / cleanable next run).
 DUSER="$(id -u):$(id -g)"
@@ -54,7 +54,8 @@ for _ in $(seq 1 200); do curl -s "$URL" >/dev/null 2>&1; done
 export BENCH_URL="$URL" BENCH_VUS="$VUS" BENCH_DURATION="$DURATION"
 SUBST='${BENCH_URL} ${BENCH_VUS} ${BENCH_DURATION}'
 envsubst "$SUBST" < scenarios/loadr/plan.yaml.tmpl > "$RESULTS/loadr/plan.yaml"
-envsubst "$SUBST" < scenarios/k6/script.js.tmpl    > "$RESULTS/k6/script.js"
+envsubst "$SUBST" < scenarios/k6/script.js.tmpl       > "$RESULTS/k6/script.js"
+envsubst "$SUBST" < scenarios/k6/script-tuned.js.tmpl > "$RESULTS/k6-tuned/script.js"
 cp scenarios/locust/locustfile.py "$RESULTS/locust/"
 cp scenarios/jmeter/plan.jmx      "$RESULTS/jmeter/"
 
@@ -88,6 +89,13 @@ run_k6() {
     run --vus "$VUS" --duration "$DURATION" --summary-export=summary.json script.js
 }
 
+# Tuned k6: discard bodies, minimal tags, base compat mode, no usage report.
+run_k6_tuned() {
+  docker run --rm --network host --user "$DUSER" -v "$RESULTS/k6-tuned:/work" -w /work "$K6_IMAGE" \
+    run --vus "$VUS" --duration "$DURATION" --compatibility-mode=base --no-usage-report \
+    --summary-export=summary.json script.js
+}
+
 run_locust() {
   docker run --rm --network host --user "$DUSER" -e HOME=/tmp -v "$RESULTS/locust:/work" -w /work "$LOCUST_IMAGE" \
     -f locustfile.py --headless -u "$VUS" -r "$VUS" -t "$DURATION" \
@@ -118,8 +126,9 @@ run_gatling() {
 
 for t in $TOOLS; do
   case "$t" in
-    loadr)   runtool loadr   run_loadr ;;
-    k6)      runtool k6      run_k6 ;;
+    loadr)   runtool loadr    run_loadr ;;
+    k6)      runtool k6       run_k6 ;;
+    k6-tuned) runtool k6-tuned run_k6_tuned ;;
     locust)  runtool locust  run_locust ;;
     jmeter)  runtool jmeter  run_jmeter ;;
     gatling) runtool gatling run_gatling ;;

@@ -6,6 +6,11 @@
   "main": "out/main/index.js",
   "author": "loadr",
   "license": "Elastic-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/levantar-ai/loadr.git",
+    "directory": "desktop"
+  },
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",

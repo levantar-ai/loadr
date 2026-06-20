@@ -72,8 +72,8 @@ export function Editor({
       : { tone: 'text-mist', icon: null, text: 'not yet validated' };
 
   const forms = (
-    <div ref={formsRef} className="h-full overflow-y-auto px-5 py-5">
-      <div className="mx-auto max-w-3xl space-y-8">
+    <div ref={formsRef} className="h-full overflow-y-auto px-6 py-5">
+      <div className={`mx-auto space-y-8 ${view === 'split' ? 'max-w-3xl' : 'max-w-6xl'}`}>
         <PlanMetaForm doc={doc} />
         <ScenariosForm doc={doc} />
       </div>

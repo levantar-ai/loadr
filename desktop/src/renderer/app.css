@@ -82,6 +82,25 @@ body {
   }
 }
 
+/* Live monitoring chart bars + pulse — mirrors the loadr.io web-UI dashboard. */
+.chartbar {
+  background: linear-gradient(180deg, rgb(239 68 68 / 0.9), rgb(220 38 38 / 0.25));
+  border-radius: 2px 2px 0 0;
+  min-height: 2px;
+  transition: height 0.25s ease;
+}
+@keyframes livepulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.livedot {
+  animation: livepulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .livedot { animation: none; }
+  .chartbar { transition: none; }
+}
+
 /* A soft top-lit panel surface used for cards and the workspace canvas. */
 .surface-grid {
   background-image:

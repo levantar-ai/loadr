@@ -1,19 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { compareResults, runsForPlan, type RunRecord } from '../shared/history';
+import { pushSample } from '../shared/monitor';
 import { deriveResults, parseProgressLine, type LiveMetrics, type Results } from '../shared/results';
+import { RunMonitor } from './RunMonitor';
 import { Button } from './ui/controls';
 import { Play } from './ui/icons';
 
-// M4: run the current plan via the CLI, show live metrics while it runs, then
-// the results; persist to history and compare against a previous run.
+// Run the current plan via the bundled CLI (`loadr run`), stream its live
+// progress into the monitoring dashboard, then show the run's summary; persist
+// to history and compare against a previous run. The GUI never computes load
+// itself — every figure here comes from the loadr binary.
 export function RunPanel({ yaml, planName }: { yaml: string; planName: string }) {
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState<LiveMetrics | null>(null);
+  const [series, setSeries] = useState<LiveMetrics[]>([]);
   const [results, setResults] = useState<Results | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RunRecord[]>([]);
   const [compareId, setCompareId] = useState<string | null>(null);
+  const runId = useRef<string | null>(null);
 
   useEffect(() => {
     window.loadr?.historyList().then(setHistory).catch(() => {});
@@ -22,13 +28,21 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
   async function run() {
     setRunning(true);
     setLive(null);
+    setSeries([]);
     setResults(null);
     setError(null);
     try {
-      const summary = await window.loadr.run(yaml, (line) => {
-        const m = parseProgressLine(line);
-        if (m) setLive(m);
-      });
+      const summary = await window.loadr.run(
+        yaml,
+        (line) => {
+          const m = parseProgressLine(line);
+          if (m) {
+            setLive(m);
+            setSeries((s) => pushSample(s, m));
+          }
+        },
+        (id) => { runId.current = id; },
+      );
       const r = deriveResults(summary);
       setResults(r);
       const rec: RunRecord = { id: String(Date.now()), planName, at: Date.now(), passed: r.passed, results: r };
@@ -37,50 +51,34 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
       setError((e as Error).message);
     } finally {
       setRunning(false);
+      runId.current = null;
     }
+  }
+
+  function stop() {
+    if (runId.current) window.loadr.stopRun(runId.current).catch(() => {});
   }
 
   const planRuns = runsForPlan(history, planName);
   const baseline = planRuns.find((r) => r.id === compareId)?.results;
 
   return (
-    <div className="flex max-h-[40vh] flex-col overflow-y-auto border-t border-edge bg-coal p-3 text-sm">
+    <div className="flex max-h-[55vh] flex-col gap-3 overflow-y-auto border-t border-edge bg-coal p-3 text-sm">
       <div className="flex items-center gap-3">
         <Button variant="primary" icon={Play} onClick={run} disabled={running}>
           {running ? 'Running…' : 'Run'}
         </Button>
-        {live && (
-          <span className="font-mono text-xs text-smoke">
-            {live.elapsedSecs}s · vus {live.vus} · rps {live.rps.toFixed(0)} ·
-            p95 {live.p95Ms == null ? '—' : `${live.p95Ms}ms`} · failed {live.failed}
-          </span>
-        )}
+        {!running && !results && <span className="text-xs text-mist">Run the plan with the bundled loadr engine and watch it live.</span>}
       </div>
 
-      {error && <p className="mt-2 rounded-lg border border-blood/40 bg-blood/10 px-2.5 py-1.5 text-xs text-flare">✗ {error}</p>}
+      {error && <p className="rounded-lg border border-blood/40 bg-blood/10 px-2.5 py-1.5 text-xs text-flare">✗ {error}</p>}
 
-      {results && (
-        <div className="mt-3 rounded-xl border border-edge bg-panel p-3">
-          <div className="flex items-center gap-3">
-            <span className={`inline-flex items-center gap-1.5 text-sm font-semibold ${results.passed ? 'text-ok' : 'text-flare'}`}>
-              {results.passed ? '✓ passed' : '✗ failed'}
-            </span>
-            <span className="text-xs text-mist">{results.durationSecs.toFixed(1)}s</span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 text-xs sm:grid-cols-4">
-            <Stat label="requests" value={results.totalRequests.toLocaleString()} />
-            <Stat label="error rate" value={`${(results.errorRate * 100).toFixed(2)}%`} />
-            <Stat label="p95" value={results.latency.p95 == null ? '—' : `${results.latency.p95.toFixed(1)}ms`} />
-            <Stat label="p99" value={results.latency.p99 == null ? '—' : `${results.latency.p99.toFixed(1)}ms`} />
-            <Stat label="iterations" value={results.iterations.toLocaleString()} />
-            <Stat label="checks" value={`${results.checks.passed}✓ ${results.checks.failed}✗`} />
-            <Stat label="thresholds" value={results.thresholdsPassed ? 'pass' : 'fail'} />
-          </div>
-        </div>
+      {(running || results) && (
+        <RunMonitor running={running} live={live} series={series} results={results} onStop={stop} />
       )}
 
       {planRuns.length > 0 && (
-        <div className="mt-3">
+        <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-mist">History · compare</p>
           <ul className="mt-1.5 space-y-1">
             {planRuns.slice(0, 8).map((r) => (
@@ -113,15 +111,6 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-mist">{label}</div>
-      <div className="font-mono text-ash">{value}</div>
     </div>
   );
 }

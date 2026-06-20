@@ -56,7 +56,7 @@ try {
 
   // Wait for the verdict + headline stats, then capture the results panel.
   await page.getByText(/✓ passed|✗ failed/).waitFor({ timeout: 40_000 });
-  await page.getByText('error rate').scrollIntoViewIfNeeded();
+  await page.getByText('thresholds').scrollIntoViewIfNeeded(); // a results pill — errors if pills don't render
   await page.waitForTimeout(400);
   await shot('run-results');
 

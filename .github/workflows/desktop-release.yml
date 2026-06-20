@@ -148,3 +148,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: npx semantic-release -e semantic-release-monorepo
+      - name: Keep releases/latest on the CLI (desktop must never be 'latest')
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN }}
+        run: |
+          # @semantic-release/github ignores `makeLatest`, so a fresh desktop-v*
+          # release otherwise becomes releases/latest (GitHub picks newest-created,
+          # ignoring tag prefix) and 404s the CLI download paths the site hardcodes.
+          # Re-assert the newest CLI v* release as latest — that demotes the
+          # desktop release. (Reliable, unlike the plugin option.)
+          cli=$(gh api 'repos/${{ github.repository }}/releases?per_page=50' \
+                  --jq '[.[]|select(.tag_name|test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))][0].id')
+          if [ -n "$cli" ] && [ "$cli" != "null" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/releases/$cli" -f make_latest=true >/dev/null
+            echo "re-asserted CLI release id=$cli as releases/latest"
+          else
+            echo "no CLI v* release found; leaving releases/latest unchanged"
+          fi

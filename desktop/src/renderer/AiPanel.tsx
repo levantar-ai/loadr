@@ -1,24 +1,22 @@
 import { useEffect, useState } from 'react';
 
+import { defaultModel, getProvider, PROVIDERS } from '../shared/providers';
 import { Button, Field, IconButton, Segmented, Select, Textarea, TextInput } from './ui/controls';
 import { FolderOpen, Key, Sparkles, X } from './ui/icons';
-
-const MODELS = [
-  { value: 'claude-sonnet-4-6', label: 'Sonnet — balanced' },
-  { value: 'claude-opus-4-8', label: 'Opus — most capable' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Haiku — fastest' },
-];
 
 type Mode = 'prompt' | 'repo';
 
 // "Generate with AI": describe a test in natural language, or point loadr at a
-// repository, and get a validated plan in a new tab. The Anthropic key lives in
-// the OS keychain (main process); we only ask whether one is set.
+// repository, and get a validated plan in a new tab. Works with any of the big
+// providers (Anthropic / OpenAI / Google / xAI) — pick one and set its key
+// (stored OS-encrypted in main; never exposed to the renderer).
 export function AiPanel({ onClose, onGenerated }: { onClose: () => void; onGenerated: (yaml: string, title: string) => void }) {
+  const [provider, setProvider] = useState(() => localStorage.getItem('loadr.ai.provider') || 'anthropic');
+  const prov = getProvider(provider);
+  const [model, setModel] = useState(() => localStorage.getItem(`loadr.ai.model.${provider}`) || defaultModel(provider));
   const [mode, setMode] = useState<Mode>('prompt');
   const [prompt, setPrompt] = useState('');
   const [source, setSource] = useState('');
-  const [model, setModel] = useState(() => localStorage.getItem('loadr.ai.model') || MODELS[0].value);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [keyInput, setKeyInput] = useState('');
   const [editingKey, setEditingKey] = useState(false);
@@ -26,12 +24,24 @@ export function AiPanel({ onClose, onGenerated }: { onClose: () => void; onGener
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
-  useEffect(() => { window.loadr.ai.hasKey().then(setHasKey).catch(() => setHasKey(false)); }, []);
-  useEffect(() => { localStorage.setItem('loadr.ai.model', model); }, [model]);
+  // Re-check the key whenever the provider changes (keys are per-provider).
+  useEffect(() => {
+    setHasKey(null);
+    setEditingKey(false);
+    setKeyInput('');
+    window.loadr.ai.hasKey(provider).then(setHasKey).catch(() => setHasKey(false));
+    localStorage.setItem('loadr.ai.provider', provider);
+  }, [provider]);
+  useEffect(() => { localStorage.setItem(`loadr.ai.model.${provider}`, model); }, [provider, model]);
+
+  function changeProvider(id: string) {
+    setProvider(id);
+    setModel(localStorage.getItem(`loadr.ai.model.${id}`) || defaultModel(id));
+  }
 
   async function saveKey() {
     if (!keyInput.trim()) return;
-    await window.loadr.ai.setKey(keyInput.trim());
+    await window.loadr.ai.setKey(provider, keyInput.trim());
     setKeyInput('');
     setEditingKey(false);
     setHasKey(true);
@@ -49,15 +59,15 @@ export function AiPanel({ onClose, onGenerated }: { onClose: () => void; onGener
     setError(null);
     setNote(null);
     try {
-      const r = await window.loadr.ai.generate({ mode, prompt: prompt.trim(), source: source.trim(), model });
+      const r = await window.loadr.ai.generate({ provider, model, mode, prompt: prompt.trim(), source: source.trim() });
       const title = (r.yaml.match(/^name:\s*(.+)$/m)?.[1]?.trim() || 'ai plan').slice(0, 40);
       onGenerated(r.yaml, title);
-      if (!r.valid) {
+      if (r.valid) {
+        onClose();
+      } else {
         const n = r.diagnostics.filter((d) => d.severity === 'error').length;
         setNote(`Opened in a new tab, but it still has ${n} validation error(s) after a repair pass — review the highlighted fields.`);
       }
-      // Keep the panel open only if there's a note to show; otherwise close.
-      if (r.valid) onClose();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -67,7 +77,7 @@ export function AiPanel({ onClose, onGenerated }: { onClose: () => void; onGener
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" role="dialog" aria-label="Generate with AI">
-      <div className="flex max-h-[85vh] w-[44rem] flex-col rounded-2xl border border-edge bg-panel shadow-2xl shadow-black/60">
+      <div className="flex max-h-[88vh] w-[46rem] flex-col rounded-2xl border border-edge bg-panel shadow-2xl shadow-black/60">
         <div className="flex items-center justify-between border-b border-edge px-4 py-3">
           <h2 className="flex items-center gap-2 font-bold text-white"><span className="text-flare"><Sparkles /></span>Generate with AI</h2>
           <div className="flex items-center gap-1">
@@ -81,11 +91,23 @@ export function AiPanel({ onClose, onGenerated }: { onClose: () => void; onGener
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Provider">
+              <Select value={provider} onChange={(e) => changeProvider(e.target.value)}>
+                {PROVIDERS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+              </Select>
+            </Field>
+            <Field label="Model" hint="type any model the provider supports">
+              <TextInput list="ai-models" value={model} onChange={(e) => setModel(e.target.value)} />
+            </Field>
+            <datalist id="ai-models">{prov.models.map((m) => <option key={m} value={m} />)}</datalist>
+          </div>
+
           {hasKey === false || editingKey ? (
             <div className="rounded-xl border border-ember/40 bg-ember/5 p-3">
-              <Field label="Anthropic API key" hint="stored encrypted in your OS keychain; used only to call the Claude API from this app">
+              <Field label={`${prov.label} API key`} hint={`stored encrypted in your OS keychain · get one at ${prov.keysUrl}`}>
                 <div className="flex gap-2">
-                  <TextInput type="password" value={keyInput} placeholder="sk-ant-…" onChange={(e) => setKeyInput(e.target.value)} />
+                  <TextInput type="password" value={keyInput} placeholder={prov.keyHint} onChange={(e) => setKeyInput(e.target.value)} />
                   <Button variant="primary" onClick={saveKey} disabled={!keyInput.trim()}>Save</Button>
                   {editingKey && <Button onClick={() => setEditingKey(false)}>Cancel</Button>}
                 </div>
@@ -93,19 +115,12 @@ export function AiPanel({ onClose, onGenerated }: { onClose: () => void; onGener
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between gap-3">
-            <Segmented
-              ariaLabel="generation source"
-              value={mode}
-              onChange={setMode}
-              options={[{ value: 'prompt', label: 'Describe', icon: Sparkles }, { value: 'repo', label: 'From repository', icon: FolderOpen }]}
-            />
-            <Field label="Model" className="w-56">
-              <Select value={model} onChange={(e) => setModel(e.target.value)}>
-                {MODELS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </Select>
-            </Field>
-          </div>
+          <Segmented
+            ariaLabel="generation source"
+            value={mode}
+            onChange={setMode}
+            options={[{ value: 'prompt', label: 'Describe', icon: Sparkles }, { value: 'repo', label: 'From repository', icon: FolderOpen }]}
+          />
 
           {mode === 'prompt' ? (
             <Field label="Describe the load test" hint="e.g. “100 VUs for 2 minutes against POST /checkout with a JSON body, assert 200 and p95 < 400ms”">

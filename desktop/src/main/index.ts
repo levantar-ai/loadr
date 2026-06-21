@@ -12,8 +12,9 @@ import type { ChildProcess } from 'node:child_process';
 import {
   convert, pluginInstall, pluginList, pluginRemove, runPlan, schema, validate, version,
 } from './loadr';
-import { anthropicChat, generatePlan, type ChatMessage } from './ai';
+import { generatePlan, providerChat, type ChatMessage } from './ai';
 import { gatherRepo } from './repo';
+import { getProvider, type ProviderId } from '../shared/providers';
 import { addRun, type RunRecord } from '../shared/history';
 
 const isDev = !app.isPackaged;
@@ -137,18 +138,20 @@ ipcMain.handle('plan:save', async (_e: IpcMainInvokeEvent, path: string | null, 
 // ---- IPC: AI plan authoring ------------------------------------------------
 // The Anthropic API key is stored OS-encrypted (safeStorage) in userData; it is
 // never exposed back to the renderer. All network/LLM calls happen here in main.
-const keyFile = () => join(app.getPath('userData'), 'ai-key.bin');
+// One encrypted key file per provider. getProvider() sanitises the id (unknown
+// ids fall back to a known one), so the path can't be influenced by the renderer.
+const keyFile = (provider: string) => join(app.getPath('userData'), `ai-key-${getProvider(provider).id}.bin`);
 
-async function setApiKey(key: string): Promise<void> {
+async function setApiKey(provider: string, key: string): Promise<void> {
   const blob = safeStorage.isEncryptionAvailable()
     ? safeStorage.encryptString(key)
     : Buffer.from(`plain:${key}`);
-  await writeFile(keyFile(), blob);
+  await writeFile(keyFile(provider), blob);
 }
-async function getApiKey(): Promise<string | null> {
+async function getApiKey(provider: string): Promise<string | null> {
   let buf: Buffer;
   try {
-    buf = await readFile(keyFile());
+    buf = await readFile(keyFile(provider));
   } catch {
     return null;
   }
@@ -167,10 +170,10 @@ async function cachedSchema(): Promise<unknown> {
   return schemaCache;
 }
 
-ipcMain.handle('ai:hasKey', () => existsSync(keyFile()));
-ipcMain.handle('ai:setKey', (_e: IpcMainInvokeEvent, key: string) => setApiKey(key));
-ipcMain.handle('ai:clearKey', async () => {
-  await unlink(keyFile()).catch(() => {});
+ipcMain.handle('ai:hasKey', (_e: IpcMainInvokeEvent, provider: string) => existsSync(keyFile(provider)));
+ipcMain.handle('ai:setKey', (_e: IpcMainInvokeEvent, a: { provider: string; key: string }) => setApiKey(a.provider, a.key));
+ipcMain.handle('ai:clearKey', async (_e: IpcMainInvokeEvent, provider: string) => {
+  await unlink(keyFile(provider)).catch(() => {});
 });
 ipcMain.handle('ai:browseRepo', async () => {
   const r = await dialog.showOpenDialog({ properties: ['openDirectory'] });
@@ -178,11 +181,14 @@ ipcMain.handle('ai:browseRepo', async () => {
 });
 ipcMain.handle(
   'ai:generate',
-  async (_e: IpcMainInvokeEvent, arg: { mode: 'prompt' | 'repo'; prompt: string; source?: string; model: string }) => {
-    const apiKey = await getApiKey();
-    if (!apiKey) throw new Error('Set your Anthropic API key first (the key icon).');
+  async (
+    _e: IpcMainInvokeEvent,
+    arg: { provider: ProviderId; mode: 'prompt' | 'repo'; prompt: string; source?: string; model: string },
+  ) => {
+    const apiKey = await getApiKey(arg.provider);
+    if (!apiKey) throw new Error(`Set your ${getProvider(arg.provider).label} API key first.`);
     const repo = arg.mode === 'repo' && arg.source ? await gatherRepo(arg.source) : null;
-    const chat = (messages: ChatMessage[]) => anthropicChat(apiKey, arg.model, messages);
+    const chat = (messages: ChatMessage[]) => providerChat(arg.provider, apiKey, arg.model, messages);
     const validateFn = async (yaml: string) => {
       const v = await validate(yaml);
       return { ok: v.ok, diagnostics: v.diagnostics };

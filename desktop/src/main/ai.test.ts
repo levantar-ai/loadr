@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { generatePlan } from './ai';
+import { generatePlan, googleBody, openAiBody } from './ai';
 
 const VALID = '```yaml\nname: t\nscenarios:\n  d:\n    executor: constant-vus\n    vus: 1\n    duration: 5s\n    flow: [ { request: { url: / } } ]\n```';
 
@@ -37,5 +37,21 @@ describe('generatePlan', () => {
     const validate = vi.fn();
     await expect(generatePlan({ prompt: 'x' }, chat, validate)).rejects.toThrow(/did not return/i);
     expect(validate).not.toHaveBeenCalled();
+  });
+});
+
+describe('provider message mappers', () => {
+  it('openAiBody prepends the system message', () => {
+    const b = openAiBody('gpt-4o', 'SYS', [{ role: 'user', content: 'hi' }]);
+    expect(b.model).toBe('gpt-4o');
+    expect(b.messages[0]).toEqual({ role: 'system', content: 'SYS' });
+    expect(b.messages[1]).toEqual({ role: 'user', content: 'hi' });
+  });
+
+  it('googleBody uses systemInstruction and maps assistant→model', () => {
+    const b = googleBody('SYS', [{ role: 'user', content: 'a' }, { role: 'assistant', content: 'b' }]);
+    expect(b.systemInstruction.parts[0].text).toBe('SYS');
+    expect(b.contents.map((c) => c.role)).toEqual(['user', 'model']);
+    expect(b.contents[1].parts[0].text).toBe('b');
   });
 });

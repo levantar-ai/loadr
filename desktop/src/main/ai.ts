@@ -4,6 +4,7 @@
 // so it's unit-testable without network or electron. No electron imports here.
 
 import { buildRepairMessage, buildUserMessage, extractYaml, SYSTEM_PROMPT, type GenerateInput } from '../shared/ai';
+import { getProvider, type ProviderId } from '../shared/providers';
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 export type ChatFn = (messages: ChatMessage[]) => Promise<string>;
@@ -44,32 +45,81 @@ export async function generatePlan(input: GenerateInput, chat: ChatFn, validate:
   return { yaml, valid: v.ok, repaired: true, diagnostics: v.diagnostics };
 }
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+// ---- provider transports ---------------------------------------------------
+// Pure request-body mappers (unit-tested); the fetch wrappers below use them.
 
-/** One Anthropic Messages API call; returns the concatenated text blocks. */
-export async function anthropicChat(
+export function openAiBody(model: string, system: string, messages: ChatMessage[]) {
+  return { model, messages: [{ role: 'system', content: system }, ...messages] };
+}
+
+export function googleBody(system: string, messages: ChatMessage[]) {
+  return {
+    systemInstruction: { parts: [{ text: system }] },
+    contents: messages.map((m) => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    })),
+  };
+}
+
+async function errorDetail(res: Response): Promise<string> {
+  try {
+    return (await res.json())?.error?.message ?? '';
+  } catch {
+    return '';
+  }
+}
+
+async function anthropicChat(apiKey: string, model: string, messages: ChatMessage[]): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model, max_tokens: 4096, system: SYSTEM_PROMPT, messages }),
+  });
+  if (!res.ok) throw new Error(`Anthropic API ${res.status}: ${await errorDetail(res)}`);
+  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
+  return (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('');
+}
+
+async function openAiChat(baseUrl: string, apiKey: string, model: string, messages: ChatMessage[]): Promise<string> {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(openAiBody(model, SYSTEM_PROMPT, messages)),
+  });
+  if (!res.ok) throw new Error(`API ${res.status}: ${await errorDetail(res)}`);
+  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  return data.choices?.[0]?.message?.content ?? '';
+}
+
+async function googleChat(apiKey: string, model: string, messages: ChatMessage[]): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(googleBody(SYSTEM_PROMPT, messages)),
+  });
+  if (!res.ok) throw new Error(`Gemini API ${res.status}: ${await errorDetail(res)}`);
+  const data = (await res.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+  return (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('');
+}
+
+/** Dispatch one chat turn to the selected provider's API. */
+export async function providerChat(
+  providerId: ProviderId,
   apiKey: string,
   model: string,
   messages: ChatMessage[],
 ): Promise<string> {
-  const res = await fetch(ANTHROPIC_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model, max_tokens: 4096, system: SYSTEM_PROMPT, messages }),
-  });
-  if (!res.ok) {
-    let detail = '';
-    try {
-      detail = (await res.json())?.error?.message ?? '';
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new Error(`Anthropic API ${res.status}${detail ? `: ${detail}` : ''}`);
+  const p = getProvider(providerId);
+  switch (p.transport) {
+    case 'anthropic':
+      return anthropicChat(apiKey, model, messages);
+    case 'openai':
+      return openAiChat(p.baseUrl ?? 'https://api.openai.com/v1', apiKey, model, messages);
+    case 'google':
+      return googleChat(apiKey, model, messages);
+    default:
+      throw new Error(`unknown provider transport: ${p.transport}`);
   }
-  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
-  return (data.content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('');
 }

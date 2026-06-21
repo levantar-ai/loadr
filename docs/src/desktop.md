@@ -35,8 +35,10 @@ what a run produced.
   repository** (local folder or git URL); it reads the OpenAPI spec / routes and
   writes a test covering them. Every generated plan is validated against
   `loadr validate` (with one automatic repair pass) before it opens in a tab.
-  Uses the Anthropic API with your own key, stored OS-encrypted; all calls happen
-  in the main process (the renderer stays sandboxed).
+  Works with your choice of provider — **Anthropic (Claude), OpenAI (GPT),
+  Google (Gemini) or xAI (Grok)** — using your own API key per provider, stored
+  OS-encrypted; all calls happen in the main process (the renderer stays
+  sandboxed).
 - **Run + live monitoring** — a dashboard mirroring the
   [web UI](webui.md): live Requests/s, Active VUs, p95 and error tiles, a
   streaming throughput chart, threshold pills, a **Stop** control, plus run

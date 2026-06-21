@@ -41,11 +41,11 @@ export interface LoadrApi {
   pluginRemove(name: string): Promise<void>;
   pluginBrowseDir(): Promise<string | null>;
   ai: {
-    hasKey(): Promise<boolean>;
-    setKey(key: string): Promise<void>;
-    clearKey(): Promise<void>;
+    hasKey(provider: string): Promise<boolean>;
+    setKey(provider: string, key: string): Promise<void>;
+    clearKey(provider: string): Promise<void>;
     browseRepo(): Promise<string | null>;
-    generate(arg: { mode: 'prompt' | 'repo'; prompt: string; source?: string; model: string }): Promise<AiPlanResult>;
+    generate(arg: { provider: string; mode: 'prompt' | 'repo'; prompt: string; source?: string; model: string }): Promise<AiPlanResult>;
   };
 }
 
@@ -83,9 +83,9 @@ const api: LoadrApi = {
   pluginRemove: (name) => ipcRenderer.invoke('plugin:remove', name),
   pluginBrowseDir: () => ipcRenderer.invoke('plugin:browseDir'),
   ai: {
-    hasKey: () => ipcRenderer.invoke('ai:hasKey'),
-    setKey: (key) => ipcRenderer.invoke('ai:setKey', key),
-    clearKey: () => ipcRenderer.invoke('ai:clearKey'),
+    hasKey: (provider) => ipcRenderer.invoke('ai:hasKey', provider),
+    setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', { provider, key }),
+    clearKey: (provider) => ipcRenderer.invoke('ai:clearKey', provider),
     browseRepo: () => ipcRenderer.invoke('ai:browseRepo'),
     generate: (arg) => ipcRenderer.invoke('ai:generate', arg),
   },

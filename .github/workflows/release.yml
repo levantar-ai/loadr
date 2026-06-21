@@ -23,6 +23,10 @@ on:
       - '.github/workflows/desktop-release.yml'
       - '.github/workflows/benchmark.yml'
       - '.github/workflows/release.yml'
+      - '.github/workflows/publish-packages.yml'
+      - 'Formula/**'
+      - 'bucket/**'
+      - 'packaging/**'
   workflow_dispatch:
 
 permissions:

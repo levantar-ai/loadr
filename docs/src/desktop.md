@@ -90,12 +90,11 @@ for the full developer guide, CI layout and known environment blockers.
 The app diagnoses a broken engine on startup and shows a banner explaining the
 fix, rather than surfacing a raw error on your first run:
 
-- **"The bundled loadr engine doesn't match this Mac's processor"** — you
-  installed the build for the other CPU architecture. Apple Silicon Macs need
-  the **arm64** build; Intel Macs need the **x64** build. Download the matching
-  one from [loadr.io/download](https://loadr.io/download). (macOS packages bundle
-  the architecture-correct CLI, so a fresh install of the right build resolves
-  this.)
+- **"The bundled loadr engine doesn't match this Mac's processor"** — update to
+  the latest loadr Desktop. macOS builds bundle a **universal2** loadr engine
+  (both Intel and Apple Silicon slices in one binary), so either download runs
+  natively on either Mac. If you're on an old build, get the latest from
+  [loadr.io/download](https://loadr.io/download).
 - **"Couldn't find the loadr engine"** — the install is incomplete; reinstall,
   or set `LOADR_BIN` to a `loadr` binary.
 - **"…isn't executable (permission denied)"** — reinstall, or

@@ -80,11 +80,16 @@ jobs:
         shell: bash
         run: |
           if [ "${{ runner.os }}" = "macOS" ]; then
-            # DMGs ship for both arches from one runner — cross-build both so the
-            # beforePack hook can stage the matching binary (avoids EBADARCH).
+            # Bundle a universal2 loadr so one binary runs on Intel AND Apple
+            # Silicon (avoids EBADARCH; no per-arch race during packaging).
             rustup target add x86_64-apple-darwin aarch64-apple-darwin
             cargo build --release -p loadr-cli --target x86_64-apple-darwin
             cargo build --release -p loadr-cli --target aarch64-apple-darwin
+            mkdir -p target/universal-apple-darwin/release
+            lipo -create -output target/universal-apple-darwin/release/loadr \
+              target/x86_64-apple-darwin/release/loadr \
+              target/aarch64-apple-darwin/release/loadr
+            lipo -info target/universal-apple-darwin/release/loadr
           else
             cargo build --release -p loadr-cli
           fi

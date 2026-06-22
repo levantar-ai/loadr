@@ -214,6 +214,10 @@
         <h3 class="font-bold text-white">Thresholds as CI gates</h3>
         <p class="mt-2 text-sm text-smoke"><code>p(95)&lt;400</code>, <code>rate&gt;0.99</code>, any percentile, tag-filtered selectors, <code>abort_on_fail</code> circuit breakers with warm-up delay. Exit code 99 on failure — k6-compatible.</p>
       </a>
+      <a href="/docs/ci/github-actions.html" class="fcard rounded-xl border border-edge bg-panel p-6">
+        <h3 class="font-bold text-white">CI-native: GitHub Action + JUnit</h3>
+        <p class="mt-2 text-sm text-smoke">A first-party <code>setup-loadr</code> / <code>run</code> action installs the CLI and runs your plan, and <code>--junit</code> emits a JUnit report every CI test panel renders — GitHub, GitLab, Jenkins, CircleCI.</p>
+      </a>
       <a href="/docs/yaml/assertions-checks.html" class="fcard rounded-xl border border-edge bg-panel p-6">
         <h3 class="font-bold text-white">Checks + JMeter assertions</h3>
         <p class="mt-2 text-sm text-smoke">k6-style checks that never fail requests, and JMeter-style assertions that do: status, body contains/regex, JSONPath, XPath, duration, size, headers, JS expressions — with abort actions.</p>

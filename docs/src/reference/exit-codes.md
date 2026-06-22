@@ -11,10 +11,14 @@ CI example:
 
 ```yaml
 - name: Load test gate
-  run: loadr run -e ci --summary-export results.json perf/checkout.yaml
+  run: loadr run -e ci --summary-export results.json --junit junit.xml perf/checkout.yaml
   # job fails automatically on exit 99
 
 - name: Publish report
   if: always()
   run: loadr report results.json -o report.html
 ```
+
+For a turnkey setup, use the first-party
+[GitHub Action and JUnit report](../ci/github-actions.md) instead — it installs
+loadr, runs the plan, and surfaces thresholds in the PR's test panel.

@@ -37,6 +37,7 @@ export const Save: Icon = (p) => <Svg {...p}><path d="M19 21H5a2 2 0 0 1-2-2V5a2
 export const FolderOpen: Icon = (p) => <Svg {...p}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v1M3 7v11a2 2 0 0 0 2 2h12.5a2 2 0 0 0 1.9-1.4L22 11H6.5a2 2 0 0 0-1.9 1.4L3 18" /></Svg>;
 export const Import: Icon = (p) => <Svg {...p}><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></Svg>;
 export const Copy: Icon = (p) => <Svg {...p}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></Svg>;
+export const Download: Icon = (p) => <Svg {...p}><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></Svg>;
 export const Puzzle: Icon = (p) => <Svg {...p}><path d="M14 3a2 2 0 0 0-4 0v1H7a1 1 0 0 0-1 1v3H5a2 2 0 0 0 0 4h1v3a1 1 0 0 0 1 1h3v1a2 2 0 0 0 4 0v-1h3a1 1 0 0 0 1-1v-3h1a2 2 0 0 0 0-4h-1V5a1 1 0 0 0-1-1h-3V3z" /></Svg>;
 export const X: Icon = (p) => <Svg {...p}><path d="M18 6 6 18M6 6l12 12" /></Svg>;
 export const Code: Icon = (p) => <Svg {...p}><path d="m16 18 4-6-4-6M8 6l-4 6 4 6" /></Svg>;

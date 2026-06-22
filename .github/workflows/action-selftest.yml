@@ -1,0 +1,89 @@
+name: Action self-test
+
+# Proves the first-party GitHub Action runs a plan and produces a JUnit report.
+# On a PR the released binary may predate new flags, so we build loadr from this
+# checkout and feed it to the action via `bin:` — exercising the action's run +
+# JUnit plumbing against the code under review. The plan hits a throwaway local
+# server so the test never depends on a third-party endpoint.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/actions/**'
+      - '.github/workflows/action-selftest.yml'
+  pull_request:
+    paths:
+      - '.github/actions/**'
+      - '.github/workflows/action-selftest.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build loadr
+        run: cargo build --release -p loadr-cli
+
+      - name: Start a local HTTP server
+        run: |
+          python3 -m http.server 8080 --directory "$RUNNER_TEMP" &
+          for i in $(seq 1 20); do
+            curl -fsS -o /dev/null http://127.0.0.1:8080/ && break || sleep 0.5
+          done
+
+      - name: Write a tiny plan
+        run: |
+          cat > plan.yaml <<'YAML'
+          name: action-selftest
+          defaults:
+            http: { base_url: http://127.0.0.1:8080 }
+          scenarios:
+            hit:
+              executor: constant-vus
+              vus: 2
+              duration: 5s
+              flow:
+                - request:
+                    name: index
+                    url: /
+                    checks:
+                      - { type: status, equals: 200 }
+          thresholds:
+            http_req_failed: [ "rate<0.05" ]
+            checks: [ "rate>0.95" ]
+          YAML
+
+      - name: Run loadr via the action
+        id: loadr
+        uses: ./.github/actions/run
+        with:
+          plan: plan.yaml
+          bin: ${{ github.workspace }}/target/release/loadr
+          junit: loadr-junit.xml
+          summary: loadr-summary.json
+
+      - name: Assert outputs and JUnit report
+        run: |
+          test "${{ steps.loadr.outputs.passed }}" = "true"
+          test -f loadr-junit.xml
+          grep -q '<testsuites name="loadr: action-selftest"' loadr-junit.xml
+          grep -q 'classname="check"' loadr-junit.xml
+          echo "JUnit report OK"
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: loadr-reports
+          path: |
+            loadr-junit.xml
+            loadr-summary.json

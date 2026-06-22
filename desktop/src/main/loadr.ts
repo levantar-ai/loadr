@@ -128,20 +128,31 @@ export async function convert(file: string): Promise<string> {
  * progress/log line to `onLine` (loadr uses \r for the live line, so we split
  * on either), and resolve with the parsed end-of-run summary. Array args only.
  */
+/** A completed run: the parsed summary plus the CLI's JUnit XML report. */
+export interface RunResult {
+  summary: Summary;
+  junit: string;
+}
+
 export function runPlan(
   yamlText: string,
   onLine: (line: string) => void,
   onChild?: (child: ReturnType<typeof spawn>) => void,
-): Promise<Summary> {
+): Promise<RunResult> {
   const dir = mkdtempSync(join(tmpdir(), 'loadr-run-'));
   const planPath = join(dir, 'plan.yaml');
   const summaryPath = join(dir, 'summary.json');
+  const junitPath = join(dir, 'junit.xml');
   writeFileSync(planPath, yamlText);
 
-  return new Promise<Summary>((resolve, reject) => {
-    const child = spawn(resolveLoadr(), ['run', planPath, '--summary-export', summaryPath], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+  return new Promise<RunResult>((resolve, reject) => {
+    // The CLI writes the JUnit report itself, so the GUI and CI produce byte-for-
+    // byte identical reports — the renderer never re-derives it.
+    const child = spawn(
+      resolveLoadr(),
+      ['run', planPath, '--summary-export', summaryPath, '--junit', junitPath],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    );
     onChild?.(child);
     const pump = (buf: Buffer) => {
       for (const line of buf.toString().split(/[\r\n]+/)) {
@@ -153,7 +164,14 @@ export function runPlan(
     child.on('error', reject);
     child.on('close', (code) => {
       try {
-        resolve(parseSummary(JSON.parse(readFileSync(summaryPath, 'utf8'))));
+        const summary = parseSummary(JSON.parse(readFileSync(summaryPath, 'utf8')));
+        let junit = '';
+        try {
+          junit = readFileSync(junitPath, 'utf8');
+        } catch {
+          /* a stopped run may not have flushed JUnit; summary still resolves */
+        }
+        resolve({ summary, junit });
       } catch (e) {
         reject(new Error(`run exited (code ${code}) without a summary: ${(e as Error).message}`));
       }

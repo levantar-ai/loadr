@@ -333,6 +333,125 @@ impl Summary {
         out.push('\n');
         out
     }
+
+    /// Render the run as a JUnit XML report.
+    ///
+    /// Each threshold and each check becomes a `<testcase>`, grouped into a
+    /// `thresholds` and a `checks` `<testsuite>`. A failed threshold, a check
+    /// with any failures, and an aborted run each emit a `<failure>`. This is the
+    /// shape every CI test reporter (GitHub Actions, GitLab, Jenkins, Bamboo)
+    /// understands, so a loadr run drops straight into a pipeline's test panel.
+    pub fn render_junit(&self) -> String {
+        let suite_name = self.name.as_deref().unwrap_or("loadr test");
+        let time = format!("{:.3}", self.duration_secs);
+
+        // Thresholds suite: one testcase per threshold.
+        let mut threshold_cases = String::new();
+        let mut threshold_failures = 0u64;
+        for t in &self.thresholds {
+            let observed = t
+                .observed
+                .map(|v| format!("{v:.2}"))
+                .unwrap_or_else(|| "no samples".to_string());
+            let name = format!("{}: {}", t.metric, t.expression);
+            if t.passed {
+                threshold_cases.push_str(&format!(
+                    "    <testcase name=\"{}\" classname=\"threshold\"/>\n",
+                    xml_escape(&name)
+                ));
+            } else {
+                threshold_failures += 1;
+                let msg = format!("threshold {} failed (observed: {})", t.expression, observed);
+                threshold_cases.push_str(&format!(
+                    "    <testcase name=\"{}\" classname=\"threshold\">\n      <failure message=\"{}\"/>\n    </testcase>\n",
+                    xml_escape(&name),
+                    xml_escape(&msg)
+                ));
+            }
+        }
+
+        // Checks suite: one testcase per named check.
+        let mut check_cases = String::new();
+        let mut check_failures = 0u64;
+        for c in &self.checks {
+            let total = c.passes + c.fails;
+            if c.fails == 0 {
+                check_cases.push_str(&format!(
+                    "    <testcase name=\"{}\" classname=\"check\"/>\n",
+                    xml_escape(&c.name)
+                ));
+            } else {
+                check_failures += 1;
+                let msg = format!("{} of {} checks failed", c.fails, total);
+                check_cases.push_str(&format!(
+                    "    <testcase name=\"{}\" classname=\"check\">\n      <failure message=\"{}\"/>\n    </testcase>\n",
+                    xml_escape(&c.name),
+                    xml_escape(&msg)
+                ));
+            }
+        }
+
+        // A run-level testcase that fails when the run was aborted, so a crash or
+        // abort_on_fail never reports as an all-green suite.
+        let (run_case, run_failures) = match &self.aborted {
+            Some(reason) => (
+                format!(
+                    "    <testcase name=\"run completed\" classname=\"run\">\n      <failure message=\"run aborted: {}\"/>\n    </testcase>\n",
+                    xml_escape(reason)
+                ),
+                1u64,
+            ),
+            None => (
+                "    <testcase name=\"run completed\" classname=\"run\"/>\n".to_string(),
+                0u64,
+            ),
+        };
+
+        let threshold_total = self.thresholds.len() as u64;
+        let check_total = self.checks.len() as u64;
+        let total_tests = threshold_total + check_total + 1;
+        let total_failures = threshold_failures + check_failures + run_failures;
+
+        let mut out = String::new();
+        out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        out.push_str(&format!(
+            "<testsuites name=\"loadr: {}\" tests=\"{}\" failures=\"{}\" time=\"{}\">\n",
+            xml_escape(suite_name),
+            total_tests,
+            total_failures,
+            time
+        ));
+        out.push_str(&format!(
+            "  <testsuite name=\"thresholds\" tests=\"{}\" failures=\"{}\" time=\"{}\">\n{}  </testsuite>\n",
+            threshold_total, threshold_failures, time, threshold_cases
+        ));
+        out.push_str(&format!(
+            "  <testsuite name=\"checks\" tests=\"{}\" failures=\"{}\" time=\"{}\">\n{}  </testsuite>\n",
+            check_total, check_failures, time, check_cases
+        ));
+        out.push_str(&format!(
+            "  <testsuite name=\"run\" tests=\"1\" failures=\"{}\" time=\"{}\">\n{}  </testsuite>\n",
+            run_failures, time, run_case
+        ));
+        out.push_str("</testsuites>\n");
+        out
+    }
+}
+
+/// Escape the five XML special characters for safe attribute/text content.
+fn xml_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 fn dots(name: &str) -> String {
@@ -424,6 +543,65 @@ mod tests {
         assert!(text.contains("http_req_duration"));
         assert!(text.contains("p(95)<400"));
         assert!(text.contains("✓ http_req_duration"));
+    }
+
+    #[test]
+    fn junit_render_passing_threshold_and_run() {
+        let s = build_summary();
+        let xml = s.render_junit();
+        assert!(xml.starts_with("<?xml version=\"1.0\""));
+        assert!(xml.contains("<testsuites name=\"loadr: demo\""));
+        // 1 threshold + 1 check + 1 run testcase; the check has 1 failing sample.
+        assert!(xml.contains("tests=\"3\" failures=\"1\""));
+        // Passing threshold and completed run are self-closing (no failure).
+        assert!(xml.contains(
+            "<testcase name=\"http_req_duration: p(95)&lt;400\" classname=\"threshold\"/>"
+        ));
+        assert!(xml.contains("<testcase name=\"run completed\" classname=\"run\"/>"));
+        // The check with one failed sample reports a failure.
+        assert!(xml.contains("<testcase name=\"status is 200\" classname=\"check\">"));
+        assert!(xml.contains("1 of 10 checks failed"));
+    }
+
+    #[test]
+    fn junit_render_marks_failures_and_escapes() {
+        let mut agg = Aggregator::new();
+        let mut tags = Tags::new();
+        tags.insert("check".into(), "body has <tag> & \"quote\"".into());
+        let tags = Arc::new(tags);
+        for i in 0..10 {
+            agg.record(&Sample {
+                metric: Arc::from("checks"),
+                kind: MetricKind::Rate,
+                value: if i < 6 { 1.0 } else { 0.0 },
+                tags: tags.clone(),
+                timestamp_ms: now_millis(),
+            });
+        }
+        let s = Summary::build(
+            Some("esc & <test>".into()),
+            "run-2".into(),
+            now_millis(),
+            vec!["default".into()],
+            &mut agg,
+            vec![ThresholdStatus {
+                metric: "http_req_failed".into(),
+                expression: "rate<0.01".into(),
+                observed: Some(0.4),
+                passed: false,
+                abort_on_fail: false,
+            }],
+            Some("threshold rate<0.01 crossed".into()),
+            Vec::new(),
+        );
+        let xml = s.render_junit();
+        // 1 threshold + 1 check + 1 run, all three failing.
+        assert!(xml.contains("tests=\"3\" failures=\"3\""));
+        assert!(xml.contains("<testsuites name=\"loadr: esc &amp; &lt;test&gt;\""));
+        assert!(xml.contains("body has &lt;tag&gt; &amp; &quot;quote&quot;"));
+        assert!(xml.contains("4 of 10 checks failed"));
+        assert!(xml.contains("threshold rate&lt;0.01 failed (observed: 0.40)"));
+        assert!(xml.contains("run aborted: threshold rate&lt;0.01 crossed"));
     }
 
     #[test]

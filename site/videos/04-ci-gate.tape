@@ -16,13 +16,19 @@ Sleep 800ms
 Type "cat slo-gate.yaml"
 Enter
 Sleep 4s
-Type "loadr run --summary-export results.json slo-gate.yaml"
+Type "loadr run --summary-export results.json --junit junit.xml slo-gate.yaml"
 Enter
 Sleep 8s
 Type "echo exit=$?"
 Enter
 Sleep 2.5s
-Type "# exit 99 fails the pipeline. now hand the team a report:"
+Type "# exit 99 fails the pipeline — and you get a JUnit report for free:"
+Enter
+Sleep 800ms
+Type "cat junit.xml"
+Enter
+Sleep 4s
+Type "# every CI test panel renders it. hand the team an HTML report too:"
 Enter
 Sleep 800ms
 Type "loadr report results.json -o report.html"

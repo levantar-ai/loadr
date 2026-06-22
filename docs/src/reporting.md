@@ -23,6 +23,14 @@ loadr report results.json -o report.html
 including one fetched from a controller's `/api/runs/{id}/summary` endpoint in
 distributed mode.
 
+For CI, render the same summary as a **JUnit XML** report instead of HTML — see
+[GitHub Actions & JUnit reports](ci/github-actions.md):
+
+```bash
+loadr run --junit junit.xml test.yaml          # write JUnit alongside the run
+loadr report results.json --format junit -o junit.xml   # or convert after the fact
+```
+
 ## The charts
 
 Four charts are rendered from the run timeline:

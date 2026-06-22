@@ -24,6 +24,11 @@ export interface ValidateResult {
   raw: string;
 }
 
+export interface RunResult {
+  summary: Summary;
+  junit: string;
+}
+
 export interface LoadrApi {
   version(): Promise<string>;
   schema(): Promise<unknown>;
@@ -32,8 +37,9 @@ export interface LoadrApi {
   importPlan(): Promise<OpenedPlan | null>;
   readPlan(path: string): Promise<string>;
   savePlan(path: string | null, content: string): Promise<string | null>;
-  run(yamlText: string, onLine: (line: string) => void, onStart?: (runId: string) => void): Promise<Summary>;
+  run(yamlText: string, onLine: (line: string) => void, onStart?: (runId: string) => void): Promise<RunResult>;
   stopRun(runId: string): Promise<void>;
+  saveJunit(content: string): Promise<string | null>;
   historyList(): Promise<RunRecord[]>;
   historyAppend(rec: RunRecord): Promise<RunRecord[]>;
   pluginList(): Promise<InstalledPlugin[]>;
@@ -76,6 +82,7 @@ const api: LoadrApi = {
       .finally(() => ipcRenderer.removeListener('loadr:run:line', listener));
   },
   stopRun: (runId) => ipcRenderer.invoke('plan:stop', runId),
+  saveJunit: (content) => ipcRenderer.invoke('report:saveJunit', content),
   historyList: () => ipcRenderer.invoke('history:list'),
   historyAppend: (rec) => ipcRenderer.invoke('history:append', rec),
   pluginList: () => ipcRenderer.invoke('plugin:list'),

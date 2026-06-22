@@ -19,4 +19,13 @@ export default tseslint.config(
     files: ['scripts/**/*.mjs', 'e2e/**/*.mjs'],
     languageOptions: { globals: { process: 'readonly', console: 'readonly', URL: 'readonly' } },
   },
+  {
+    // CommonJS build hooks (electron-builder requires them via CJS).
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { require: 'readonly', module: 'writable', __dirname: 'readonly', console: 'readonly', process: 'readonly' },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 );

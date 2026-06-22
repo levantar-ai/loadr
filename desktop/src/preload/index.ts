@@ -6,6 +6,16 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { Summary } from '../shared/results';
 import type { RunRecord } from '../shared/history';
 import type { InstalledPlugin } from '../shared/plugins';
+import { cleanIpcMessage } from '../shared/ipc';
+
+// Every IPC call goes through here so a rejected main-process handler reaches the
+// renderer as a clean, human-readable message — not Electron's
+// "Error invoking remote method '…': Error: …" wrapper.
+function call<T>(channel: string, ...args: unknown[]): Promise<T> {
+  return ipcRenderer.invoke(channel, ...args).catch((e: unknown) => {
+    throw new Error(cleanIpcMessage(e instanceof Error ? e.message : String(e)));
+  });
+}
 
 export interface OpenedPlan {
   path: string;
@@ -29,8 +39,16 @@ export interface RunResult {
   junit: string;
 }
 
+export interface Health {
+  ok: boolean;
+  path: string;
+  version?: string;
+  problem?: string;
+}
+
 export interface LoadrApi {
   version(): Promise<string>;
+  doctor(): Promise<Health>;
   schema(): Promise<unknown>;
   validate(yamlText: string): Promise<ValidateResult>;
   openPlan(): Promise<OpenedPlan | null>;
@@ -63,13 +81,14 @@ export interface AiPlanResult {
 }
 
 const api: LoadrApi = {
-  version: () => ipcRenderer.invoke('loadr:version'),
-  schema: () => ipcRenderer.invoke('loadr:schema'),
-  validate: (yamlText) => ipcRenderer.invoke('loadr:validate', yamlText),
-  openPlan: () => ipcRenderer.invoke('plan:open'),
-  importPlan: () => ipcRenderer.invoke('plan:import'),
-  readPlan: (path) => ipcRenderer.invoke('plan:read', path),
-  savePlan: (path, content) => ipcRenderer.invoke('plan:save', path, content),
+  version: () => call('loadr:version'),
+  doctor: () => call('loadr:doctor'),
+  schema: () => call('loadr:schema'),
+  validate: (yamlText) => call('loadr:validate', yamlText),
+  openPlan: () => call('plan:open'),
+  importPlan: () => call('plan:import'),
+  readPlan: (path) => call('plan:read', path),
+  savePlan: (path, content) => call('plan:save', path, content),
   run: (yamlText, onLine, onStart) => {
     const runId = `run-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     onStart?.(runId);
@@ -77,24 +96,24 @@ const api: LoadrApi = {
       if (payload.runId === runId) onLine(payload.line);
     };
     ipcRenderer.on('loadr:run:line', listener);
-    return ipcRenderer
-      .invoke('plan:run', { yaml: yamlText, runId })
-      .finally(() => ipcRenderer.removeListener('loadr:run:line', listener));
+    return call<RunResult>('plan:run', { yaml: yamlText, runId }).finally(() =>
+      ipcRenderer.removeListener('loadr:run:line', listener),
+    );
   },
-  stopRun: (runId) => ipcRenderer.invoke('plan:stop', runId),
-  saveJunit: (content) => ipcRenderer.invoke('report:saveJunit', content),
-  historyList: () => ipcRenderer.invoke('history:list'),
-  historyAppend: (rec) => ipcRenderer.invoke('history:append', rec),
-  pluginList: () => ipcRenderer.invoke('plugin:list'),
-  pluginInstall: (spec, allowUntrusted) => ipcRenderer.invoke('plugin:install', { spec, allowUntrusted }),
-  pluginRemove: (name) => ipcRenderer.invoke('plugin:remove', name),
-  pluginBrowseDir: () => ipcRenderer.invoke('plugin:browseDir'),
+  stopRun: (runId) => call('plan:stop', runId),
+  saveJunit: (content) => call('report:saveJunit', content),
+  historyList: () => call('history:list'),
+  historyAppend: (rec) => call('history:append', rec),
+  pluginList: () => call('plugin:list'),
+  pluginInstall: (spec, allowUntrusted) => call('plugin:install', { spec, allowUntrusted }),
+  pluginRemove: (name) => call('plugin:remove', name),
+  pluginBrowseDir: () => call('plugin:browseDir'),
   ai: {
-    hasKey: (provider) => ipcRenderer.invoke('ai:hasKey', provider),
-    setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', { provider, key }),
-    clearKey: (provider) => ipcRenderer.invoke('ai:clearKey', provider),
-    browseRepo: () => ipcRenderer.invoke('ai:browseRepo'),
-    generate: (arg) => ipcRenderer.invoke('ai:generate', arg),
+    hasKey: (provider) => call('ai:hasKey', provider),
+    setKey: (provider, key) => call('ai:setKey', { provider, key }),
+    clearKey: (provider) => call('ai:clearKey', provider),
+    browseRepo: () => call('ai:browseRepo'),
+    generate: (arg) => call('ai:generate', arg),
   },
 };
 

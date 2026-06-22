@@ -84,3 +84,19 @@ npm run package    # stage loadr + electron-builder for this platform
 
 See [`desktop/README.md`](https://github.com/levantar-ai/loadr/blob/main/desktop/README.md)
 for the full developer guide, CI layout and known environment blockers.
+
+## Troubleshooting
+
+The app diagnoses a broken engine on startup and shows a banner explaining the
+fix, rather than surfacing a raw error on your first run:
+
+- **"The bundled loadr engine doesn't match this Mac's processor"** — you
+  installed the build for the other CPU architecture. Apple Silicon Macs need
+  the **arm64** build; Intel Macs need the **x64** build. Download the matching
+  one from [loadr.io/download](https://loadr.io/download). (macOS packages bundle
+  the architecture-correct CLI, so a fresh install of the right build resolves
+  this.)
+- **"Couldn't find the loadr engine"** — the install is incomplete; reinstall,
+  or set `LOADR_BIN` to a `loadr` binary.
+- **"…isn't executable (permission denied)"** — reinstall, or
+  `chmod +x` the bundled binary.

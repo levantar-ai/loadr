@@ -11,6 +11,7 @@ import { promisify } from 'node:util';
 
 import { parseSummary, type Summary } from '../shared/results';
 import { parsePluginList, type InstalledPlugin } from '../shared/plugins';
+import { cliError } from './errors';
 
 const execFileP = promisify(execFile);
 
@@ -43,14 +44,40 @@ export interface ValidateResult {
 
 /** `loadr --version`. */
 export async function version(): Promise<string> {
-  const { stdout } = await execFileP(resolveLoadr(), ['--version']);
-  return stdout.trim();
+  const bin = resolveLoadr();
+  try {
+    const { stdout } = await execFileP(bin, ['--version']);
+    return stdout.trim();
+  } catch (e) {
+    throw cliError(e, bin);
+  }
+}
+
+/** A health check the UI can run on startup to diagnose a broken engine. */
+export interface Health {
+  ok: boolean;
+  path: string;
+  version?: string;
+  problem?: string;
+}
+export async function doctor(): Promise<Health> {
+  const path = resolveLoadr();
+  try {
+    return { ok: true, path, version: await version() };
+  } catch (e) {
+    return { ok: false, path, problem: (e as Error).message };
+  }
 }
 
 /** The plan JSON Schema (`loadr schema`) — drives schema-aware form rendering. */
 export async function schema(): Promise<unknown> {
-  const { stdout } = await execFileP(resolveLoadr(), ['schema'], { maxBuffer: 32 * 1024 * 1024 });
-  return JSON.parse(stdout);
+  const bin = resolveLoadr();
+  try {
+    const { stdout } = await execFileP(bin, ['schema'], { maxBuffer: 32 * 1024 * 1024 });
+    return JSON.parse(stdout);
+  } catch (e) {
+    throw cliError(e, bin);
+  }
 }
 
 /**
@@ -73,9 +100,10 @@ export async function validate(yamlText: string, checkFiles = false): Promise<Va
     // Non-zero exit (validation errors) still carries JSON on stdout.
     const stdout = (e as { stdout?: string }).stdout ?? '';
     if (stdout) return parseValidate(stdout);
+    // No stdout means the engine couldn't run at all — surface why, in English.
     return {
       ok: false,
-      diagnostics: [{ severity: 'error', message: (e as Error).message }],
+      diagnostics: [{ severity: 'error', message: cliError(e, resolveLoadr()).message }],
       raw: stdout,
     };
   }
@@ -102,25 +130,40 @@ export async function pluginList(): Promise<InstalledPlugin[]> {
 
 /** Install a plugin by index name, directory or URL. Returns CLI output. */
 export async function pluginInstall(spec: string, allowUntrusted = false): Promise<string> {
+  const bin = resolveLoadr();
   const args = ['plugin', 'install', spec];
   if (allowUntrusted) args.push('--allow-untrusted');
-  const { stdout, stderr } = await execFileP(resolveLoadr(), args, { maxBuffer: 16 * 1024 * 1024 });
-  return (stdout + stderr).trim();
+  try {
+    const { stdout, stderr } = await execFileP(bin, args, { maxBuffer: 16 * 1024 * 1024 });
+    return (stdout + stderr).trim();
+  } catch (e) {
+    throw cliError(e, bin);
+  }
 }
 
 /** Remove an installed plugin by name. */
 export async function pluginRemove(name: string): Promise<void> {
-  await execFileP(resolveLoadr(), ['plugin', 'remove', name]);
+  const bin = resolveLoadr();
+  try {
+    await execFileP(bin, ['plugin', 'remove', name]);
+  } catch (e) {
+    throw cliError(e, bin);
+  }
 }
 
 /** Import a JMeter/k6/HAR file via `loadr convert`; returns the YAML it emits. */
 export async function convert(file: string): Promise<string> {
   const kind = convertKind(file);
   if (!kind) throw new Error(`cannot import ${file}: expected .jmx, .js or .har`);
-  const { stdout } = await execFileP(resolveLoadr(), ['convert', '--from', kind, file], {
-    maxBuffer: 32 * 1024 * 1024,
-  });
-  return stdout;
+  const bin = resolveLoadr();
+  try {
+    const { stdout } = await execFileP(bin, ['convert', '--from', kind, file], {
+      maxBuffer: 32 * 1024 * 1024,
+    });
+    return stdout;
+  } catch (e) {
+    throw cliError(e, bin);
+  }
 }
 
 /**
@@ -145,23 +188,28 @@ export function runPlan(
   const junitPath = join(dir, 'junit.xml');
   writeFileSync(planPath, yamlText);
 
+  const bin = resolveLoadr();
   return new Promise<RunResult>((resolve, reject) => {
     // The CLI writes the JUnit report itself, so the GUI and CI produce byte-for-
     // byte identical reports — the renderer never re-derives it.
     const child = spawn(
-      resolveLoadr(),
+      bin,
       ['run', planPath, '--summary-export', summaryPath, '--junit', junitPath],
       { stdio: ['ignore', 'pipe', 'pipe'] },
     );
     onChild?.(child);
+    let tail = ''; // bounded copy of recent output, for a failure message
     const pump = (buf: Buffer) => {
-      for (const line of buf.toString().split(/[\r\n]+/)) {
+      const text = buf.toString();
+      tail = (tail + text).slice(-2000);
+      for (const line of text.split(/[\r\n]+/)) {
         if (line.trim()) onLine(line);
       }
     };
     child.stdout.on('data', pump);
     child.stderr.on('data', pump);
-    child.on('error', reject);
+    // Spawn failed entirely (missing binary, wrong CPU arch, no exec perms).
+    child.on('error', (err) => reject(cliError(err, bin)));
     child.on('close', (code) => {
       try {
         const summary = parseSummary(JSON.parse(readFileSync(summaryPath, 'utf8')));
@@ -172,8 +220,17 @@ export function runPlan(
           /* a stopped run may not have flushed JUnit; summary still resolves */
         }
         resolve({ summary, junit });
-      } catch (e) {
-        reject(new Error(`run exited (code ${code}) without a summary: ${(e as Error).message}`));
+      } catch {
+        // No summary means the run failed before finishing — surface what loadr
+        // printed (last lines) rather than a JSON-parse error.
+        const detail = tail.trim().split(/\n/).slice(-6).join('\n').trim();
+        reject(
+          new Error(
+            detail
+              ? `The test run failed (exit ${code}):\n${detail}`
+              : `The test run exited (code ${code}) without producing a summary.`,
+          ),
+        );
       }
     });
   });

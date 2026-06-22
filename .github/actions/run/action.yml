@@ -16,6 +16,12 @@ inputs:
     description: 'loadr version to install (tag like "v1.21.5", or "latest").'
     required: false
     default: latest
+  bin:
+    description: >-
+      Path to a preinstalled loadr binary. When set, the download is skipped and
+      this binary is used (handy for self-hosted runners that already ship loadr).
+    required: false
+    default: ''
   junit:
     description: Path to write the JUnit XML report.
     required: false
@@ -58,10 +64,21 @@ runs:
       shell: bash
       env:
         LOADR_VERSION: ${{ inputs.version }}
+        LOADR_PREINSTALLED: ${{ inputs.bin }}
         GH_TOKEN: ${{ github.token }}
       run: |
         set -euo pipefail
         repo="levantar-ai/loadr"
+        # A preinstalled binary short-circuits the download.
+        if [ -n "${LOADR_PREINSTALLED}" ]; then
+          if [ ! -x "${LOADR_PREINSTALLED}" ]; then
+            echo "::error::bin '${LOADR_PREINSTALLED}' is not an executable file"; exit 1
+          fi
+          echo "Using preinstalled loadr at ${LOADR_PREINSTALLED}"
+          echo "$(cd "$(dirname "${LOADR_PREINSTALLED}")" && pwd)" >> "$GITHUB_PATH"
+          "${LOADR_PREINSTALLED}" --version || true
+          exit 0
+        fi
         os="$(uname -s)"; arch="$(uname -m)"
         case "$os" in
           Linux)  triple_os="unknown-linux-gnu"; ext="tar.gz" ;;

@@ -1,8 +1,10 @@
 name: Action self-test
 
-# Proves the first-party GitHub Action installs loadr and produces a JUnit
-# report. Runs the published release against a throwaway local HTTP server so
-# the test never depends on a third-party endpoint.
+# Proves the first-party GitHub Action runs a plan and produces a JUnit report.
+# On a PR the released binary may predate new flags, so we build loadr from this
+# checkout and feed it to the action via `bin:` — exercising the action's run +
+# JUnit plumbing against the code under review. The plan hits a throwaway local
+# server so the test never depends on a third-party endpoint.
 
 on:
   push:
@@ -24,6 +26,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build loadr
+        run: cargo build --release -p loadr-cli
 
       - name: Start a local HTTP server
         run: |
@@ -59,7 +67,7 @@ jobs:
         uses: ./.github/actions/run
         with:
           plan: plan.yaml
-          version: latest
+          bin: ${{ github.workspace }}/target/release/loadr
           junit: loadr-junit.xml
           summary: loadr-summary.json
 

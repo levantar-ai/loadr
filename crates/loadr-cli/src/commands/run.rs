@@ -29,6 +29,9 @@ pub struct RunArgs {
     /// Write the end-of-run summary as JSON
     #[arg(long, value_name = "PATH")]
     pub summary_export: Option<PathBuf>,
+    /// Write a JUnit XML report (thresholds + checks as testcases) for CI
+    #[arg(long, value_name = "PATH")]
+    pub junit: Option<PathBuf>,
     /// Extra output, `kind=value` (json=path, csv=path, prometheus=addr,
     /// influxdb=url,db, statsd=addr, otlp=endpoint). Repeatable.
     #[arg(long, value_name = "SPEC")]
@@ -357,6 +360,10 @@ async fn run_local(args: RunArgs, quiet: bool) -> anyhow::Result<i32> {
         std::fs::write(path, serde_json::to_string_pretty(&result.summary)?)?;
         eprintln!("{} summary exported to {}", "✓".green(), path.display());
     }
+    if let Some(path) = &args.junit {
+        std::fs::write(path, result.summary.render_junit())?;
+        eprintln!("{} JUnit report written to {}", "✓".green(), path.display());
+    }
     if let Some((served, backend)) = ui_handle {
         *backend.summary.lock() = Some(result.summary.clone());
         eprintln!(
@@ -452,6 +459,9 @@ async fn submit_remote(args: &RunArgs, controller: &str) -> anyhow::Result<i32> 
                     print!("{}", colorize_summary(&summary.render_console()));
                     if let Some(path) = &args.summary_export {
                         std::fs::write(path, serde_json::to_string_pretty(&summary)?)?;
+                    }
+                    if let Some(path) = &args.junit {
+                        std::fs::write(path, summary.render_junit())?;
                     }
                     let passed = summary.thresholds_passed && summary.aborted.is_none();
                     return Ok(if passed && state == "finished" {

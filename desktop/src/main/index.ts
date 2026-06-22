@@ -65,6 +65,17 @@ ipcMain.handle('plan:stop', (_e: IpcMainInvokeEvent, runId: string) => {
   runningChildren.get(runId)?.kill('SIGINT');
 });
 
+// Save a JUnit XML report (produced by the last run) to disk for CI ingestion.
+ipcMain.handle('report:saveJunit', async (_e: IpcMainInvokeEvent, content: string) => {
+  const r = await dialog.showSaveDialog({
+    defaultPath: 'loadr-junit.xml',
+    filters: [{ name: 'JUnit XML', extensions: ['xml'] }],
+  });
+  if (r.canceled || !r.filePath) return null;
+  await writeFile(r.filePath, content, 'utf8');
+  return r.filePath;
+});
+
 // ---- IPC: run history (persisted in userData) ------------------------------
 const historyFile = () => join(app.getPath('userData'), 'run-history.json');
 async function readHistory(): Promise<RunRecord[]> {

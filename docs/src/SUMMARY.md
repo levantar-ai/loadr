@@ -81,6 +81,10 @@
 
 - [HTML reports & time-series charts](reporting.md)
 
+# Continuous integration
+
+- [GitHub Actions & JUnit reports](ci/github-actions.md)
+
 # Reference
 
 - [Built-in metrics](reference/metrics.md)

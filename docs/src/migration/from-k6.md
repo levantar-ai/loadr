@@ -33,6 +33,7 @@ scenarios:
 | `setup()` / `teardown()` | identical lifecycle |
 | `k6 run script.js` | `loadr run test.yaml` |
 | exit code 99 on threshold failure | identical |
+| `--out junit` / xk6-output-junit | `--junit` (built in) + [GitHub Action](../ci/github-actions.md) |
 | k6 Cloud / dashboards | built-in web UI + Prometheus/Grafana outputs |
 | xk6 extensions | WASM / native plugins (no rebuild) |
 

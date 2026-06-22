@@ -43,7 +43,8 @@ what a run produced.
   [web UI](webui.md): live Requests/s, Active VUs, p95 and error tiles, a
   streaming throughput chart, threshold pills, a **Stop** control, plus run
   history and run-to-run compare. Every figure comes from the CLI's live
-  progress stream and `--summary-export` timeline.
+  progress stream and `--summary-export` timeline. **Export JUnit** writes the
+  run's [JUnit report](ci/github-actions.md) for CI ingestion.
 - **Plugins panel** — list / install / remove protocol plugins via
   `loadr plugin`.
 

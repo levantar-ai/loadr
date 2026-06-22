@@ -5,7 +5,7 @@ import { pushSample } from '../shared/monitor';
 import { deriveResults, parseProgressLine, type LiveMetrics, type Results } from '../shared/results';
 import { RunMonitor } from './RunMonitor';
 import { Button } from './ui/controls';
-import { Play } from './ui/icons';
+import { Download, Play } from './ui/icons';
 
 // Run the current plan via the bundled CLI (`loadr run`), stream its live
 // progress into the monitoring dashboard, then show the run's summary; persist
@@ -16,6 +16,7 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
   const [live, setLive] = useState<LiveMetrics | null>(null);
   const [series, setSeries] = useState<LiveMetrics[]>([]);
   const [results, setResults] = useState<Results | null>(null);
+  const [junit, setJunit] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<RunRecord[]>([]);
   const [compareId, setCompareId] = useState<string | null>(null);
@@ -30,9 +31,10 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
     setLive(null);
     setSeries([]);
     setResults(null);
+    setJunit('');
     setError(null);
     try {
-      const summary = await window.loadr.run(
+      const { summary, junit: junitXml } = await window.loadr.run(
         yaml,
         (line) => {
           const m = parseProgressLine(line);
@@ -45,6 +47,7 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
       );
       const r = deriveResults(summary);
       setResults(r);
+      setJunit(junitXml);
       const rec: RunRecord = { id: String(Date.now()), planName, at: Date.now(), passed: r.passed, results: r };
       setHistory(await window.loadr.historyAppend(rec));
     } catch (e) {
@@ -68,6 +71,11 @@ export function RunPanel({ yaml, planName }: { yaml: string; planName: string })
         <Button variant="primary" icon={Play} onClick={run} disabled={running}>
           {running ? 'Running…' : 'Run'}
         </Button>
+        {results && junit && (
+          <Button icon={Download} onClick={() => window.loadr.saveJunit(junit).catch(() => {})}>
+            Export JUnit
+          </Button>
+        )}
         {!running && !results && <span className="text-xs text-mist">Run the plan with the bundled loadr engine and watch it live.</span>}
       </div>
 

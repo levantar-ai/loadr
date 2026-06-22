@@ -53,6 +53,7 @@ thresholds:
     );
     let test = write_test(dir.path(), "t.yaml", &yaml);
     let summary_path = dir.path().join("summary.json");
+    let junit_path = dir.path().join("junit.xml");
 
     let output = Command::new(BIN)
         .args([
@@ -60,6 +61,8 @@ thresholds:
             "--quiet",
             "--summary-export",
             summary_path.to_str().expect("path"),
+            "--junit",
+            junit_path.to_str().expect("path"),
             test.to_str().expect("path"),
         ])
         .output()
@@ -87,6 +90,15 @@ thresholds:
         .find(|m| m["metric"] == "http_reqs")
         .expect("http_reqs");
     assert_eq!(reqs["agg"]["sum"], serde_json::json!(60.0));
+
+    // JUnit report: well-formed, names the suite, and reports the thresholds as
+    // a green testsuite that any CI test panel can ingest.
+    let junit = std::fs::read_to_string(&junit_path).expect("junit file");
+    assert!(junit.starts_with("<?xml version=\"1.0\""), "junit: {junit}");
+    assert!(junit.contains("<testsuites name=\"loadr: e2e-standalone\""));
+    assert!(junit.contains("<testsuite name=\"thresholds\""));
+    assert!(junit.contains("classname=\"threshold\""));
+    assert!(junit.contains("</testsuites>"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

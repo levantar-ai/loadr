@@ -39,11 +39,24 @@ export default function App() {
   });
   const yamlRef = useRef<Record<string, string>>({});
   const [version, setVersion] = useState('');
+  const [engineProblem, setEngineProblem] = useState<string | null>(null);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showAi, setShowAi] = useState(false);
 
   useEffect(() => {
-    window.loadr?.version().then(setVersion).catch(() => setVersion('loadr not found'));
+    // One health check on startup: a broken engine (missing binary, wrong CPU
+    // arch, no exec permission) is diagnosed once, up front, with a plain-English
+    // fix — instead of surfacing a cryptic spawn errno on the first run.
+    window.loadr
+      ?.doctor()
+      .then((h) => {
+        setVersion(h.version ?? 'loadr unavailable');
+        setEngineProblem(h.ok ? null : (h.problem ?? 'The loadr engine could not be started.'));
+      })
+      .catch((e: Error) => {
+        setVersion('loadr unavailable');
+        setEngineProblem(e.message);
+      });
   }, []);
 
   const report = useCallback((id: string, s: EditorState) => {
@@ -102,6 +115,19 @@ export default function App() {
         </div>
       </header>
 
+      {engineProblem && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 border-b border-blood/40 bg-blood/10 px-4 py-2 text-sm text-flare"
+        >
+          <span aria-hidden className="mt-0.5 font-bold">⚠</span>
+          <div>
+            <span className="font-semibold">loadr engine problem.</span>{' '}
+            <span className="text-ash">{engineProblem}</span>
+          </div>
+        </div>
+      )}
+
       {showPlugins && <PluginsPanel onClose={() => setShowPlugins(false)} />}
       {showAi && (
         <AiPanel
@@ -156,7 +182,7 @@ export default function App() {
       </div>
 
       <footer className="flex items-center gap-2 border-t border-edge bg-coal px-4 py-1 text-xs text-mist">
-        <span className="h-1.5 w-1.5 rounded-full bg-ok" />
+        <span className={`h-1.5 w-1.5 rounded-full ${engineProblem ? 'bg-blood' : 'bg-ok'}`} />
         <span className="font-mono">{version || 'loadr —'}</span>
       </footer>
     </div>

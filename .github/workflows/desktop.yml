@@ -77,7 +77,17 @@ jobs:
         with: { toolchain: stable }
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Build loadr (release, bundled with the app)
-        run: cargo build --release -p loadr-cli
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            # DMGs ship for both arches from one runner — cross-build both so the
+            # beforePack hook can stage the matching binary (avoids EBADARCH).
+            rustup target add x86_64-apple-darwin aarch64-apple-darwin
+            cargo build --release -p loadr-cli --target x86_64-apple-darwin
+            cargo build --release -p loadr-cli --target aarch64-apple-darwin
+          else
+            cargo build --release -p loadr-cli
+          fi
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
         with: { node-version: 22, cache: npm, cache-dependency-path: desktop/package-lock.json }
       - run: npm ci

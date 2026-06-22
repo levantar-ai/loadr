@@ -3,6 +3,9 @@ productName: loadr Desktop
 directories:
   output: dist
   buildResources: build
+# Stage the arch-matching loadr binary per pack (prevents macOS EBADARCH where a
+# x64 DMG ships an arm64 binary or vice versa).
+beforePack: scripts/before-pack.cjs
 files:
   - out/**/*
   - package.json

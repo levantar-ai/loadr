@@ -10,7 +10,7 @@ import { app, BrowserWindow, dialog, ipcMain, safeStorage, type IpcMainInvokeEve
 import type { ChildProcess } from 'node:child_process';
 
 import {
-  convert, pluginInstall, pluginList, pluginRemove, runPlan, schema, validate, version,
+  convert, doctor, pluginInstall, pluginList, pluginRemove, runPlan, schema, validate, version,
 } from './loadr';
 import { generatePlan, providerChat, type ChatMessage } from './ai';
 import { gatherRepo } from './repo';
@@ -43,6 +43,7 @@ function createWindow(): void {
 
 // ---- IPC: loadr CLI -------------------------------------------------------
 ipcMain.handle('loadr:version', () => version());
+ipcMain.handle('loadr:doctor', () => doctor());
 ipcMain.handle('loadr:schema', () => schema());
 ipcMain.handle('loadr:validate', (_e: IpcMainInvokeEvent, yamlText: string) => validate(yamlText));
 

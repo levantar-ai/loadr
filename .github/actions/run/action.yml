@@ -52,10 +52,52 @@ outputs:
 runs:
   using: composite
   steps:
+    # Install is inlined (not a nested `uses:`) so this action is self-contained
+    # and works at any ref — including before it lands on the default branch.
     - name: Install loadr
-      uses: levantar-ai/loadr/.github/actions/setup-loadr@main
-      with:
-        version: ${{ inputs.version }}
+      shell: bash
+      env:
+        LOADR_VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        repo="levantar-ai/loadr"
+        os="$(uname -s)"; arch="$(uname -m)"
+        case "$os" in
+          Linux)  triple_os="unknown-linux-gnu"; ext="tar.gz" ;;
+          Darwin) triple_os="apple-darwin";       ext="tar.gz" ;;
+          MINGW*|MSYS*|CYGWIN*|Windows_NT) triple_os="pc-windows-msvc"; ext="zip" ;;
+          *) echo "::error::unsupported OS: $os"; exit 1 ;;
+        esac
+        case "$arch" in
+          x86_64|amd64) triple_arch="x86_64" ;;
+          arm64|aarch64) triple_arch="aarch64" ;;
+          *) echo "::error::unsupported arch: $arch"; exit 1 ;;
+        esac
+        if [ "$triple_os" = "pc-windows-msvc" ]; then triple_arch="x86_64"; fi
+        asset="loadr-${triple_arch}-${triple_os}.${ext}"
+        if [ "${LOADR_VERSION}" = "latest" ] || [ -z "${LOADR_VERSION}" ]; then
+          base="https://github.com/${repo}/releases/latest/download"
+          tag="$(gh release view --repo "$repo" --json tagName -q .tagName 2>/dev/null || echo latest)"
+        else
+          tag="${LOADR_VERSION}"
+          base="https://github.com/${repo}/releases/download/${tag}"
+        fi
+        echo "Installing loadr ${tag} (${asset})"
+        dest="${RUNNER_TEMP:-/tmp}/loadr-install"
+        mkdir -p "$dest"
+        curl --fail --location --retry 3 --silent --show-error -o "${dest}/${asset}" "${base}/${asset}"
+        if [ "$ext" = "zip" ]; then
+          unzip -o -q "${dest}/${asset}" -d "$dest"
+          bin="$(find "$dest" -name 'loadr.exe' -type f | head -n1)"
+        else
+          tar -xzf "${dest}/${asset}" -C "$dest"
+          bin="$(find "$dest" -name 'loadr' -type f | head -n1)"
+        fi
+        if [ -z "$bin" ]; then echo "::error::loadr binary not found in $asset"; exit 1; fi
+        chmod +x "$bin" || true
+        echo "$(dirname "$bin")" >> "$GITHUB_PATH"
+        "$bin" --version || true
 
     - id: run
       shell: bash

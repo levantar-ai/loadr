@@ -1,18 +1,23 @@
 name: Major-version tag
 
-# Keep the floating major-version tag (e.g. `v1`) pointing at the newest CLI
-# release, so `uses: levantar-ai/loadr@v1` (the GitHub Action) resolves and
-# tracks patches/minors — the convention every published Action follows.
+# Keep the floating major-version tag (e.g. `v1`) current so
+# `uses: levantar-ai/loadr@v1` (the GitHub Action) resolves — the convention
+# every published Action follows.
 #
-# Two triggers, one behaviour: re-point `v<major>` at the latest CLI `v<x.y.z>`
-# release.
+# The major NUMBER tracks the latest CLI release (v1.22.2 -> v1), but the tag
+# POINTS at the default-branch head, because that's where the action definition
+# (action.yml + .github/actions/**) lives — usually ahead of the last release.
+# The CLI binary is fetched at run time via the action's `version:` input, so
+# the tag must follow the action code, not the release commit.
+#
+# Two triggers, one behaviour:
 #   - release: published  → fires after the CLI Release publishes a new
 #     `v*` release (semantic-release uses PAT_TOKEN, so the event cascades).
 #   - workflow_dispatch    → manual bootstrap / repair from the Actions tab.
 #
 # Desktop (`desktop-v*`) and plugin (`plugin-v*`) releases also raise the event;
 # they're filtered out — only `v<major>.<minor>.<patch>` CLI tags move the tag.
-# The enterprise forces GITHUB_TOKEN read-only, so the tag push uses PAT_TOKEN.
+# The enterprise forces GITHUB_TOKEN read-only, so the API write uses PAT_TOKEN.
 
 on:
   release:
@@ -28,7 +33,7 @@ concurrency:
 
 jobs:
   retag:
-    name: move v<major> to the latest CLI release
+    name: move v<major> to the action code on the default branch
     runs-on: ubuntu-latest
     steps:
       - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
@@ -59,15 +64,18 @@ jobs:
           fi
 
           ver="${latest#v}"; major="v${ver%%.*}"   # v1.22.2 -> v1
-          echo "Latest CLI release: ${latest} -> major tag ${major}"
 
-          # Resolve the commit the release tag points at (deref annotated tags).
-          obj_type="$(gh api "repos/${REPO}/git/ref/tags/${latest}" --jq '.object.type')"
-          sha="$(gh api "repos/${REPO}/git/ref/tags/${latest}" --jq '.object.sha')"
-          if [ "${obj_type}" = "tag" ]; then
-            sha="$(gh api "repos/${REPO}/git/tags/${sha}" --jq '.object.sha')"
-          fi
-          echo "${latest} -> commit ${sha}"
+          # Point the major tag at the DEFAULT BRANCH head, not the release
+          # commit. `uses: levantar-ai/loadr@vN` resolves the action definition
+          # (action.yml + .github/actions/**), which lives on the default branch
+          # and is usually ahead of the last CLI release. The CLI *binary* is
+          # fetched at run time via the action's `version:` input (default:
+          # latest release), so the tag must track the action code, not the
+          # release commit — otherwise `@vN` 404s whenever the action changed
+          # after the last release.
+          default_branch="$(gh api "repos/${REPO}" --jq '.default_branch')"
+          sha="$(gh api "repos/${REPO}/git/ref/heads/${default_branch}" --jq '.object.sha')"
+          echo "major ${major} -> ${default_branch}@${sha} (latest release ${latest})"
 
           # Create or force-move the major tag via the Git Refs API. The API path
           # is NOT subject to the PAT 'workflow'-scope rule that rejects a plain

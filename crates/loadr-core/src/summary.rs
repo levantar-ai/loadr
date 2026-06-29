@@ -57,6 +57,10 @@ pub struct TimelinePoint {
     /// `http_req_duration` p99 in milliseconds.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     pub latency_p99: Option<f64>,
+    /// External system metrics (from `observe:`) sampled at this point, keyed by
+    /// canonical metric name. Empty unless load↔system correlation is configured.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub external: BTreeMap<String, f64>,
 }
 
 impl TimelinePoint {
@@ -130,6 +134,7 @@ impl TimelinePoint {
             latency_p50: latency(|a| a.med),
             latency_p95: latency(|a| a.p95),
             latency_p99: latency(|a| a.p99),
+            external: BTreeMap::new(),
         }
     }
 }
@@ -706,6 +711,7 @@ mod tests {
             latency_p50: Some(10.0),
             latency_p95: Some(40.0),
             latency_p99: None,
+            external: BTreeMap::new(),
         }];
         let back: Summary = serde_json::from_value(s.to_json()).expect("round trip");
         assert_eq!(back.timeline.len(), 1);

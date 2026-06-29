@@ -282,6 +282,10 @@ async fn run_local(args: RunArgs, quiet: bool) -> anyhow::Result<i32> {
         );
     }
 
+    // Capture observe (system-metric correlation) config before the plan is
+    // moved into the engine; collection happens post-run against the summary.
+    let observe_cfg = plan.observe.clone();
+
     let (engine, mut services) = build_engine(
         plan,
         loaded.base_dir.clone(),
@@ -340,11 +344,29 @@ async fn run_local(args: RunArgs, quiet: bool) -> anyhow::Result<i32> {
         Some(tokio::spawn(crate::progress::show_progress(handle.clone())))
     };
 
-    let result = engine.run().await?;
+    let mut result = engine.run().await?;
 
     if let Some(p) = progress {
         p.abort();
         eprintln!();
+    }
+
+    // observe: pull system metrics for the run window and overlay them on the
+    // timeline so the report shows load↔system correlation. Best-effort — a
+    // failing source never fails the run.
+    if !observe_cfg.is_empty() && !result.summary.timeline.is_empty() {
+        let start_ms = result.summary.started_ms as i64;
+        let end_ms = result.summary.ended_ms as i64;
+        let step = loadr_outputs::observe::step_for(&result.summary.timeline);
+        let series = loadr_outputs::observe::collect(&observe_cfg, start_ms, end_ms, step).await;
+        if !series.is_empty() {
+            loadr_outputs::observe::attach(&mut result.summary, &series);
+            eprintln!(
+                "{} observed {} system-metric series for correlation",
+                "✓".green(),
+                series.len()
+            );
+        }
     }
     // A JS handleSummary() return value replaces the default console summary.
     if let Some(custom) = &result.custom_summary {

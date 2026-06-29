@@ -37,3 +37,31 @@ pub(crate) async fn post(
     let _ = response.into_body().collect().await;
     Ok(status)
 }
+
+/// GET `uri` with the given headers; returns the response status and body bytes.
+pub(crate) async fn get(
+    client: &HttpClient,
+    uri: &Uri,
+    headers: &[(HeaderName, HeaderValue)],
+) -> Result<(StatusCode, Vec<u8>), String> {
+    let mut builder = Request::builder().method(Method::GET).uri(uri.clone());
+    for (name, value) in headers {
+        builder = builder.header(name, value);
+    }
+    let request = builder
+        .body(Full::new(Bytes::new()))
+        .map_err(|err| format!("build request: {err}"))?;
+    let response = client
+        .request(request)
+        .await
+        .map_err(|err| format!("request to {uri} failed: {err}"))?;
+    let status = response.status();
+    let body = response
+        .into_body()
+        .collect()
+        .await
+        .map_err(|err| format!("read body from {uri}: {err}"))?
+        .to_bytes()
+        .to_vec();
+    Ok((status, body))
+}

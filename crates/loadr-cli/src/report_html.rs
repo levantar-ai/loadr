@@ -208,10 +208,12 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
         p99 = col(|p| p.latency_p99),
     );
 
-    // External system metrics (from `observe:`) — union of keys across the
-    // timeline, stable order. Each becomes an `ext_<key>` array + a legend
-    // entry; the JS draws them on a single "System metrics" chart. The ember-led
-    // palette is shared with the JS so legend swatches match the lines.
+    // External system metrics (from `observe:`). Union of keys across the
+    // timeline, stable order. Each becomes an `ext_<key>` data array AND its own
+    // small-multiple chart with its own y-axis — so metrics on wildly different
+    // scales (a CPU ratio next to connection counts next to ops/sec) each stay
+    // readable. The ember-led palette is shared with the JS so legend swatches
+    // match the lines.
     const EXT_PAL: [&str; 6] = [
         "#ff5a36", "#36b3ff", "#f0a35e", "#7dcfff", "#b48ead", "#8fbf6f",
     ];
@@ -221,7 +223,7 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
             ext_names.insert(k.as_str());
         }
     }
-    let mut infra_legend = String::new();
+    let mut infra_cards = String::new();
     let mut ext_jskeys: Vec<String> = Vec::new();
     for (i, name) in ext_names.iter().enumerate() {
         let jskey = format!("ext_{}", sanitize_key(name));
@@ -235,9 +237,13 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
             .join(",");
         data.push_str(&format!(r#","{jskey}":[{coldata}]"#));
         let color = EXT_PAL[i % EXT_PAL.len()];
-        infra_legend.push_str(&format!(
-            r#"<span><i style="background:{color}"></i>{label}</span>"#,
-            label = esc(name)
+        infra_cards.push_str(&format!(
+            r#"  <div class="chart"><h3>{label}</h3>
+    <div class="legend"><span><i style="background:{color}"></i>{label}</span></div>
+    <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="{jskey}"></svg>
+    <div class="tip" data-tip="{jskey}"></div></div>
+"#,
+            label = esc(name),
         ));
         ext_jskeys.push(jskey);
     }
@@ -256,15 +262,12 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
     // the surrounding <script> element.
     let data = data.replace("</", "<\\/");
 
-    let infra_card = if ext_jskeys.is_empty() {
+    // System-metric panels go in their own labelled grid.
+    let infra_section = if infra_cards.is_empty() {
         String::new()
     } else {
         format!(
-            r#"  <div class="chart"><h3>System metrics (observe)</h3>
-    <div class="legend">{infra_legend}</div>
-    <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="infra"></svg>
-    <div class="tip" data-tip="infra"></div></div>
-"#
+            "<div id=\"ts-infra\"><h2>System metrics (observe)</h2>\n<div class=\"charts\">\n{infra_cards}</div></div>\n"
         )
     };
 
@@ -287,12 +290,12 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
     <div class="legend"><span><i style="background:#e5534b"></i>failed %</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="error"></svg>
     <div class="tip" data-tip="error"></div></div>
-{infra_card}</div>
-<script type="application/json" id="ts-data">{data}</script>
+</div>
+{infra_section}<script type="application/json" id="ts-data">{data}</script>
 <script>{CHART_JS}</script>
 "##,
         data = data,
-        infra_card = infra_card,
+        infra_section = infra_section,
         CHART_JS = CHART_JS,
     )
 }
@@ -343,8 +346,10 @@ const CHART_JS: &str = r##"
   // ember-led palette matches the legend swatches emitted server-side.
   if(d.__ext&&d.__ext.length){
     var extPal=["#ff5a36","#36b3ff","#f0a35e","#7dcfff","#b48ead","#8fbf6f"];
-    d.__ext.forEach(function(k,idx){if(!palette[k])palette[k]=extPal[idx%extPal.length];});
-    charts.infra={svg:null,keys:d.__ext,max:0};
+    d.__ext.forEach(function(k,idx){
+      if(!palette[k])palette[k]=extPal[idx%extPal.length];
+      charts[k]={svg:null,keys:[k],max:0}; // one small-multiple panel per metric
+    });
   }
   var cursors=[];
   Object.keys(charts).forEach(function(name){
@@ -388,7 +393,7 @@ const CHART_JS: &str = r##"
     set("latency","<b>"+fmt(t[i])+"s</b> · p50 "+fmt(d.p50[i],"ms")+" · p95 "+fmt(d.p95[i],"ms")+" · p99 "+fmt(d.p99[i],"ms")+" · avg "+fmt(d.avg[i],"ms"));
     set("vus","<b>"+fmt(t[i])+"s</b> · "+fmt(d.vus[i])+" VUs");
     set("error","<b>"+fmt(t[i])+"s</b> · "+fmt(d.err[i],"%"));
-    if(charts.infra){set("infra","<b>"+fmt(t[i])+"s</b> · "+d.__ext.map(function(k){return k.replace(/^ext_/,"")+" "+fmt(d[k]?d[k][i]:null);}).join(" · "));}
+    if(d.__ext){d.__ext.forEach(function(k){set(k,"<b>"+fmt(t[i])+"s</b> · "+fmt(d[k]?d[k][i]:null));});}
   }
   function set(name,html){var e=document.querySelector('[data-tip="'+name+'"]');if(e)e.innerHTML=html;}
   function move(ev){
@@ -533,8 +538,9 @@ mod tests {
         };
         p.external.insert("system_cpu".to_string(), 0.82);
         let section = timeseries_section(&[p]);
+        // Each external metric gets its own small-multiple panel.
         assert!(
-            section.contains(r#"data-chart="infra""#),
+            section.contains(r#"data-chart="ext_system_cpu""#),
             "section:\n{section}"
         );
         assert!(section.contains(r#""ext_system_cpu":[0.82]"#));

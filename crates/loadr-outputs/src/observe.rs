@@ -13,7 +13,7 @@
 use crate::http_client;
 use http::{HeaderName, HeaderValue, Uri};
 use loadr_config::ObserveConfig;
-use loadr_core::Summary;
+use loadr_core::{AggValues, MetricKind, Summary, ThresholdStatus};
 
 /// A normalized external metric series: time-ordered `(unix_ms, value)` points.
 #[derive(Debug, Clone)]
@@ -233,6 +233,86 @@ fn sanitize(query: &str) -> String {
     s.chars().take(40).collect()
 }
 
+/// Evaluate plan thresholds that target an observed (`observe:`) metric, against
+/// the collected series — *post-run*. This lets a run be gated on the target's
+/// health (`system_cpu: ["max<0.9"]`) using the ordinary threshold syntax.
+///
+/// Only thresholds whose metric name matches a collected series are handled
+/// here; everything else is a load metric the engine already evaluated. Returns
+/// one [`ThresholdStatus`] per matching expression so the caller can fold them
+/// into the summary (replacing the engine's no-sample placeholders) and
+/// recompute pass/fail.
+///
+/// Note: this is end-of-run gating, not live `abort_on_fail` — system metrics
+/// aren't in the engine's live aggregator yet (a later, streaming phase).
+pub fn evaluate_thresholds(
+    thresholds: &indexmap::IndexMap<String, loadr_config::ThresholdList>,
+    series: &[ObservedSeries],
+) -> Vec<ThresholdStatus> {
+    let mut out = Vec::new();
+    for (key, list) in thresholds {
+        let Ok(sel) = loadr_config::MetricSelector::parse(key) else {
+            continue;
+        };
+        // Observed series carry no tags in this phase.
+        if !sel.tags.is_empty() {
+            continue;
+        }
+        let Some(s) = series.iter().find(|s| s.name == sel.metric) else {
+            continue; // a load metric — the engine handled it
+        };
+        let Some(agg) = agg_values(s) else { continue };
+        for entry in list.entries() {
+            let Ok(expr) = loadr_config::ThresholdExpr::parse(entry.expression()) else {
+                continue;
+            };
+            // Treat observed series as gauges (last/min/max/avg/percentiles).
+            let observed = agg.value_for(&expr.agg, MetricKind::Gauge);
+            let passed = observed.is_none_or(|v| expr.op.eval(v, expr.bound));
+            out.push(ThresholdStatus {
+                metric: sel.to_string(),
+                expression: entry.expression().to_string(),
+                observed,
+                passed,
+                abort_on_fail: entry.abort_on_fail(),
+            });
+        }
+    }
+    out
+}
+
+/// Build an [`AggValues`] (gauge-style) from a series' values for threshold eval.
+fn agg_values(s: &ObservedSeries) -> Option<AggValues> {
+    if s.points.is_empty() {
+        return None;
+    }
+    let mut vals: Vec<f64> = s.points.iter().map(|(_, v)| *v).collect();
+    let count = vals.len() as u64;
+    let sum: f64 = vals.iter().sum();
+    let avg = sum / count as f64;
+    let last = s.points.last().map(|(_, v)| *v); // series is time-ordered
+    vals.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let pct = |p: f64| -> f64 {
+        let rank = ((p / 100.0) * vals.len() as f64).ceil() as usize;
+        vals[rank.saturating_sub(1).min(vals.len() - 1)]
+    };
+    Some(AggValues {
+        count,
+        sum,
+        avg: Some(avg),
+        min: vals.first().copied(),
+        max: vals.last().copied(),
+        med: Some(pct(50.0)),
+        p90: Some(pct(90.0)),
+        p95: Some(pct(95.0)),
+        p99: Some(pct(99.0)),
+        p999: Some(pct(99.9)),
+        rate: None,
+        last,
+        per_second: Some(avg), // best-effort for `rate`-style series
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,6 +377,39 @@ mod tests {
         assert_eq!(summary.timeline[0].external.get("system_cpu"), Some(&0.10));
         assert_eq!(summary.timeline[1].external.get("system_cpu"), Some(&0.55));
         assert_eq!(summary.timeline[2].external.get("system_cpu"), Some(&0.90));
+    }
+
+    #[test]
+    fn evaluates_observe_thresholds_post_run() {
+        let series = vec![ObservedSeries {
+            name: "system_cpu".into(),
+            unit: "ratio".into(),
+            points: vec![(0, 0.20), (1000, 0.60), (2000, 0.97)],
+        }];
+        let mut th: indexmap::IndexMap<String, loadr_config::ThresholdList> =
+            indexmap::IndexMap::new();
+        // max(0.97) < 0.98 passes; max < 0.90 fails.
+        th.insert(
+            "system_cpu".into(),
+            loadr_config::ThresholdList::Single("max<0.98".into()),
+        );
+        th.insert(
+            "http_req_duration".into(), // a load metric: must be ignored here
+            loadr_config::ThresholdList::Single("p(95)<400".into()),
+        );
+        let out = evaluate_thresholds(&th, &series);
+        assert_eq!(out.len(), 1, "only the observe metric is handled: {out:?}");
+        assert_eq!(out[0].metric, "system_cpu");
+        assert!(out[0].passed);
+
+        let mut th2: indexmap::IndexMap<String, loadr_config::ThresholdList> =
+            indexmap::IndexMap::new();
+        th2.insert(
+            "system_cpu".into(),
+            loadr_config::ThresholdList::Single("max<0.90".into()),
+        );
+        let out2 = evaluate_thresholds(&th2, &series);
+        assert!(!out2[0].passed, "max 0.97 should breach max<0.90");
     }
 
     fn tp(elapsed: f64) -> loadr_core::summary::TimelinePoint {

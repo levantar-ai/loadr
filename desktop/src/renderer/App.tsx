@@ -95,8 +95,10 @@ export default function App() {
     <div className="flex h-screen flex-col bg-ink text-ash">
       <header className="flex items-center justify-between border-b border-edge bg-coal px-4 py-2.5">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-gradient-to-b from-ember to-blood text-sm font-black text-white shadow-[0_6px_18px_-8px_rgb(220_38_38/0.8)]">
-            l
+          <span className="grid h-7 w-7 place-items-center rounded-lg bg-ink">
+            <svg viewBox="0 0 51 74" className="h-4 w-auto" aria-hidden="true">
+              <path d="M17 0 L38 0 L20 36 L50 40 L11 73 L20 48 L1 44 Z" fill="#FD1E2E" />
+            </svg>
           </span>
           <span className="text-[15px] font-extrabold tracking-tight text-white">
             loadr <span className="font-medium text-smoke">Desktop</span>

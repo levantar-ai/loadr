@@ -15,6 +15,7 @@ pub mod csv_out;
 mod http_client;
 pub mod influxdb;
 pub mod json;
+pub mod observe;
 pub mod otlp;
 pub mod prometheus;
 pub mod statsd;

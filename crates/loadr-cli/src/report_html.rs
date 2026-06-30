@@ -194,8 +194,9 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
             .collect::<Vec<_>>()
             .join(",")
     };
-    let data = format!(
-        r#"{{"t":[{t}],"rps":[{rps}],"iters":[{iters}],"vus":[{vus}],"err":[{err}],"avg":[{avg}],"p50":[{p50}],"p95":[{p95}],"p99":[{p99}]}}"#,
+    // Built-in series. Left unclosed so external series can be appended.
+    let mut data = format!(
+        r#"{{"t":[{t}],"rps":[{rps}],"iters":[{iters}],"vus":[{vus}],"err":[{err}],"avg":[{avg}],"p50":[{p50}],"p95":[{p95}],"p99":[{p99}]"#,
         t = col(|p| Some(p.elapsed_secs)),
         rps = col(|p| Some(p.rps)),
         iters = col(|p| Some(p.iterations_ps)),
@@ -207,10 +208,68 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
         p99 = col(|p| p.latency_p99),
     );
 
+    // External system metrics (from `observe:`). Union of keys across the
+    // timeline, stable order. Each becomes an `ext_<key>` data array AND its own
+    // small-multiple chart with its own y-axis — so metrics on wildly different
+    // scales (a CPU ratio next to connection counts next to ops/sec) each stay
+    // readable. The ember-led palette is shared with the JS so legend swatches
+    // match the lines.
+    const EXT_PAL: [&str; 6] = [
+        "#ff5a36", "#36b3ff", "#f0a35e", "#7dcfff", "#b48ead", "#8fbf6f",
+    ];
+    let mut ext_names: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for p in timeline {
+        for k in p.external.keys() {
+            ext_names.insert(k.as_str());
+        }
+    }
+    let mut infra_cards = String::new();
+    let mut ext_jskeys: Vec<String> = Vec::new();
+    for (i, name) in ext_names.iter().enumerate() {
+        let jskey = format!("ext_{}", sanitize_key(name));
+        let coldata = timeline
+            .iter()
+            .map(|p| match p.external.get(*name) {
+                Some(v) if v.is_finite() => fmt_json_num(*v),
+                _ => "null".to_string(),
+            })
+            .collect::<Vec<_>>()
+            .join(",");
+        data.push_str(&format!(r#","{jskey}":[{coldata}]"#));
+        let color = EXT_PAL[i % EXT_PAL.len()];
+        infra_cards.push_str(&format!(
+            r#"  <div class="chart"><h3>{label}</h3>
+    <div class="legend"><span><i style="background:{color}"></i>{label}</span></div>
+    <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="{jskey}"></svg>
+    <div class="tip" data-tip="{jskey}"></div></div>
+"#,
+            label = esc(name),
+        ));
+        ext_jskeys.push(jskey);
+    }
+    if !ext_jskeys.is_empty() {
+        let arr = ext_jskeys
+            .iter()
+            .map(|k| format!("\"{k}\""))
+            .collect::<Vec<_>>()
+            .join(",");
+        data.push_str(&format!(r#","__ext":[{arr}]"#));
+    }
+    data.push('}');
+
     // The data block is embedded as JSON in a non-executed script tag, then
     // parsed by the chart script. `</` is escaped so the payload can never close
     // the surrounding <script> element.
     let data = data.replace("</", "<\\/");
+
+    // System-metric panels go in their own labelled grid.
+    let infra_section = if infra_cards.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "<div id=\"ts-infra\"><h2>System metrics (observe)</h2>\n<div class=\"charts\">\n{infra_cards}</div></div>\n"
+        )
+    };
 
     format!(
         r##"<h2>Over time</h2>
@@ -232,12 +291,20 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="error"></svg>
     <div class="tip" data-tip="error"></div></div>
 </div>
-<script type="application/json" id="ts-data">{data}</script>
+{infra_section}<script type="application/json" id="ts-data">{data}</script>
 <script>{CHART_JS}</script>
 "##,
         data = data,
+        infra_section = infra_section,
         CHART_JS = CHART_JS,
     )
+}
+
+/// JS-identifier-safe key for an external metric name.
+fn sanitize_key(s: &str) -> String {
+    s.chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '_' })
+        .collect()
 }
 
 /// Compact, deterministic number formatting for the embedded JSON payload.
@@ -275,6 +342,15 @@ const CHART_JS: &str = r##"
     vus:{svg:null,keys:["vus"],max:0},
     error:{svg:null,keys:["err"],max:0}
   };
+  // observe: register a "System metrics" chart from any ext_* series. The
+  // ember-led palette matches the legend swatches emitted server-side.
+  if(d.__ext&&d.__ext.length){
+    var extPal=["#ff5a36","#36b3ff","#f0a35e","#7dcfff","#b48ead","#8fbf6f"];
+    d.__ext.forEach(function(k,idx){
+      if(!palette[k])palette[k]=extPal[idx%extPal.length];
+      charts[k]={svg:null,keys:[k],max:0}; // one small-multiple panel per metric
+    });
+  }
   var cursors=[];
   Object.keys(charts).forEach(function(name){
     var c=charts[name];
@@ -317,6 +393,7 @@ const CHART_JS: &str = r##"
     set("latency","<b>"+fmt(t[i])+"s</b> · p50 "+fmt(d.p50[i],"ms")+" · p95 "+fmt(d.p95[i],"ms")+" · p99 "+fmt(d.p99[i],"ms")+" · avg "+fmt(d.avg[i],"ms"));
     set("vus","<b>"+fmt(t[i])+"s</b> · "+fmt(d.vus[i])+" VUs");
     set("error","<b>"+fmt(t[i])+"s</b> · "+fmt(d.err[i],"%"));
+    if(d.__ext){d.__ext.forEach(function(k){set(k,"<b>"+fmt(t[i])+"s</b> · "+fmt(d[k]?d[k][i]:null));});}
   }
   function set(name,html){var e=document.querySelector('[data-tip="'+name+'"]');if(e)e.innerHTML=html;}
   function move(ev){
@@ -431,6 +508,7 @@ mod tests {
             latency_p50: Some(8.0),
             latency_p95: Some(19.0),
             latency_p99: None,
+            external: Default::default(),
         }];
         let section = timeseries_section(&tl);
         // The None p99 serializes as JSON null inside the data block.
@@ -440,6 +518,34 @@ mod tests {
         assert!(section.contains(r#""t":[1.5]"#));
         // The embedded JSON lives in a non-executed application/json block.
         assert!(section.contains(r#"<script type="application/json" id="ts-data">"#));
+        // No observe data -> no infrastructure chart.
+        assert!(!section.contains(r#"data-chart="infra""#));
+    }
+
+    #[test]
+    fn external_metrics_render_an_infrastructure_chart() {
+        let mut p = TimelinePoint {
+            elapsed_secs: 1.0,
+            rps: 5.0,
+            iterations_ps: 5.0,
+            active_vus: 2.0,
+            error_rate: 0.0,
+            latency_avg: None,
+            latency_p50: None,
+            latency_p95: None,
+            latency_p99: None,
+            external: Default::default(),
+        };
+        p.external.insert("system_cpu".to_string(), 0.82);
+        let section = timeseries_section(&[p]);
+        // Each external metric gets its own small-multiple panel.
+        assert!(
+            section.contains(r#"data-chart="ext_system_cpu""#),
+            "section:\n{section}"
+        );
+        assert!(section.contains(r#""ext_system_cpu":[0.82]"#));
+        assert!(section.contains(r#""__ext":["ext_system_cpu"]"#));
+        assert!(section.contains("System metrics (observe)"));
     }
 
     #[test]

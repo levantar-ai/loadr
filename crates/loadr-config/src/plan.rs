@@ -64,6 +64,11 @@ pub struct TestPlan {
     /// Metric outputs/exporters.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub outputs: Vec<OutputConfig>,
+    /// System-metric collectors pulled in for load↔system correlation (the
+    /// inverse of `outputs`): foreign metrics are normalized and overlaid on the
+    /// run timeline. See the `observe` design RFC.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub observe: Vec<ObserveConfig>,
     /// Plugins to load for this test.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plugins: Vec<PluginRef>,
@@ -1991,6 +1996,35 @@ pub enum OutputConfig {
         name: String,
         #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
         config: serde_json::Value,
+    },
+}
+
+/// System-metric collector configuration — the inverse of [`OutputConfig`].
+/// Each entry pulls foreign metrics in for the run window so they can be
+/// correlated with (and overlaid on) the load metrics. `type`-discriminated so
+/// new collectors slot in without breaking existing plans.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ObserveConfig {
+    /// Query a Prometheus server with a PromQL expression as a range query over
+    /// the run window.
+    Prometheus {
+        /// Human label for this series (shown in logs/legend if `as` is unset).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        /// Prometheus base URL, e.g. `http://prometheus:9090`.
+        source: String,
+        /// PromQL expression, evaluated as a range query.
+        query: String,
+        /// Canonical metric name shown in the report (default: `name`, else query).
+        #[serde(rename = "as", default, skip_serializing_if = "Option::is_none")]
+        as_name: Option<String>,
+        /// Unit hint for axis formatting: `ratio | percent | bytes | count | seconds`.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        unit: Option<String>,
+        /// Optional bearer token (use `${env.VAR}`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        token: Option<String>,
     },
 }
 

@@ -29,6 +29,8 @@ members = [
     "plugins/loadr-plugin-webhook",
     "plugins/loadr-plugin-s3-archive",
     "plugins/loadr-plugin-junit-report",
+    "plugins/loadr-plugin-cloudwatch",
+    "plugins/loadr-plugin-otlp-metrics",
     "plugins/examples/native-output",
     "plugins/examples/native-protocol",
     "testsupport/loadr-testserver",

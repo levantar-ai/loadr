@@ -3046,6 +3046,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "loadr-plugin-data-cleanup"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde_json",
+ "sqlx",
+ "tokio",
+]
+
+[[package]]
 name = "loadr-plugin-datadog"
 version = "1.0.0"
 dependencies = [
@@ -3060,6 +3077,19 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "loadr-plugin-db-seeder"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "url",
 ]
 
 [[package]]
@@ -3111,6 +3141,18 @@ dependencies = [
  "loadr-plugin-api",
  "rand 0.10.1",
  "serde_json",
+]
+
+[[package]]
+name = "loadr-plugin-hmac-signer"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "base64 0.22.1",
+ "hmac 0.13.0",
+ "loadr-plugin-api",
+ "serde_json",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -3350,6 +3392,23 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+]
+
+[[package]]
+name = "loadr-plugin-vault-fetch"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde_json",
+ "tokio",
+ "url",
 ]
 
 [[package]]

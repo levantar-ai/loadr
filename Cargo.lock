@@ -3081,6 +3081,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "loadr-plugin-junit-report"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "loadr-plugin-api",
+ "serde_json",
+]
+
+[[package]]
 name = "loadr-plugin-kafka"
 version = "1.0.0"
 dependencies = [
@@ -3120,6 +3129,16 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "url",
+]
+
+[[package]]
+name = "loadr-plugin-nats"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "loadr-plugin-api",
+ "serde_json",
  "url",
 ]
 
@@ -3178,6 +3197,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "loadr-plugin-s3-archive"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "flate2",
+ "hmac 0.13.0",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde_json",
+ "sha2 0.11.0",
+ "time",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "loadr-plugin-s3-dataset"
 version = "1.0.0"
 dependencies = [
@@ -3199,6 +3239,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "loadr-plugin-slack-notifier"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "loadr-plugin-sql-feeder"
 version = "1.0.0"
 dependencies = [
@@ -3207,6 +3263,23 @@ dependencies = [
  "once_cell",
  "serde_json",
  "sqlx",
+ "tokio",
+]
+
+[[package]]
+name = "loadr-plugin-webhook"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "hmac 0.13.0",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "serde_json",
+ "sha2 0.11.0",
  "tokio",
 ]
 

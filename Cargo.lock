@@ -1516,6 +1516,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7cd812cc2bc1d69d4764bd80df88b4317eaef9e773c75226407d9bc0876b211c"
 dependencies = [
  "powerfmt",
+ "serde_core",
 ]
 
 [[package]]
@@ -3002,6 +3003,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "loadr-plugin-datadog"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "loadr-plugin-elasticsearch"
 version = "1.0.0"
 dependencies = [
@@ -3039,6 +3057,16 @@ dependencies = [
  "base64 0.22.1",
  "loadr-plugin-api",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "loadr-plugin-faker-gen"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "loadr-plugin-api",
+ "rand 0.10.1",
  "serde_json",
 ]
 
@@ -3125,6 +3153,37 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "tokio",
+ "url",
+]
+
+[[package]]
+name = "loadr-plugin-redis-loader"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "loadr-plugin-api",
+ "serde_json",
+ "url",
+]
+
+[[package]]
+name = "loadr-plugin-s3-dataset"
+version = "1.0.0"
+dependencies = [
+ "abi_stable",
+ "bytes",
+ "csv",
+ "hmac 0.13.0",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "loadr-plugin-api",
+ "once_cell",
+ "serde_json",
+ "sha2 0.11.0",
+ "time",
  "tokio",
  "url",
 ]

@@ -32,7 +32,9 @@ mkdir -p "$DIST/privacy"
 cp "$ROOT/site/privacy.html" "$DIST/privacy/index.html"
 mkdir -p "$DIST/cookies"
 cp "$ROOT/site/cookies.html" "$DIST/cookies/index.html"
-cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/consent.js" "$ROOT/site/assets/favicon.svg" "$DIST/assets/"
+cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/consent.js" \
+   "$ROOT/site/assets/favicon-64.png" "$ROOT/site/assets/favicon.ico" "$ROOT/site/assets/apple-touch-icon.png" \
+   "$ROOT/site/assets/logo-mark.png" "$ROOT/site/assets/desktop-app.png" "$DIST/assets/"
 cp -r "$ROOT/docs/book/." "$DIST/docs/"
 
 # Examples: browsable raw files + a download bundle + a generated index page.

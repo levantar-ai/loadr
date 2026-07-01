@@ -23,6 +23,7 @@ members = [
     "plugins/loadr-plugin-datadog",
     "plugins/loadr-plugin-faker-gen",
     "plugins/loadr-plugin-s3-dataset",
+    "plugins/loadr-plugin-sql-feeder",
     "plugins/examples/native-output",
     "plugins/examples/native-protocol",
     "testsupport/loadr-testserver",

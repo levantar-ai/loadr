@@ -12,6 +12,9 @@ AWS_PROFILE="${AWS_PROFILE:-personal}"
 echo "==> generating plugin pages"
 python3 "$ROOT/site/build-plugins.py"
 
+echo "==> generating demo pages"
+python3 "$ROOT/site/build-demos.py"
+
 echo "==> building CSS"
 (cd "$ROOT/site" && npx @tailwindcss/cli -i src/input.css -o assets/site.css --minify)
 
@@ -23,7 +26,7 @@ rm -rf "$DIST"
 mkdir -p "$DIST/assets" "$DIST/docs"
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$DIST/"
 mkdir -p "$DIST/demos"
-cp "$ROOT/site/demos.html" "$DIST/demos/index.html"
+cp -r "$ROOT/site/demos/." "$DIST/demos/"
 mkdir -p "$DIST/download"
 cp "$ROOT/site/downloads.html" "$DIST/download/index.html"
 mkdir -p "$DIST/plugins"

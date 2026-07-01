@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#scenarios-and-groupsRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="scenarios-and-groupsRun"><code data-lang="bash">$ loadr run examples/07-scenarios-and-groups.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/07-scenarios-and-groups.yaml</span><button data-copy="#scenarios-and-groupsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="scenarios-and-groupsSrc"><code data-lang="yaml"># Several scenarios running concurrently with independent executors, start
+      <div class="codebox mt-4"><div class="codebar"><span>examples/07-scenarios-and-groups.yaml</span><button data-copy="#scenarios-and-groupsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="scenarios-and-groupsSrc"><code data-lang="yaml"># Several scenarios running concurrently with independent executors, start
 # times and tags, plus groups and a custom metric.
 name: mixed-workload
 description: browsers + API clients + a batch job, all at once
@@ -109,11 +107,7 @@ scenarios:
 thresholds:
   "http_req_duration{scenario:api_clients}": [ "p(99)&lt;250" ]
   "http_req_duration{scenario:browsers}": [ "p(95)&lt;800" ]
-  carts_created: [ "count&gt;50" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/07-scenarios-and-groups.yaml">examples/07-scenarios-and-groups.yaml</a>
-      </p>
+  carts_created: [ "count&gt;50" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/07-scenarios-and-groups.yaml">examples/07-scenarios-and-groups.yaml</a></p>
       
     </div>
     <div>

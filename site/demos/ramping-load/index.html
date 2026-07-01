@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#ramping-loadRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="ramping-loadRun"><code data-lang="bash">$ loadr run examples/02-ramping-load.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/02-ramping-load.yaml</span><button data-copy="#ramping-loadSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="ramping-loadSrc"><code data-lang="yaml"># Classic ramp test: climb to 50 VUs, hold, ramp down — with think time
+      <div class="codebox mt-4"><div class="codebar"><span>examples/02-ramping-load.yaml</span><button data-copy="#ramping-loadSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="ramping-loadSrc"><code data-lang="yaml"># Classic ramp test: climb to 50 VUs, hold, ramp down — with think time
 # between requests so VUs behave like humans.
 name: ramping-load
 description: ramp to 50 VUs, hold 5m, ramp down
@@ -80,11 +78,7 @@ scenarios:
 
 thresholds:
   http_req_duration: [ "p(95)&lt;500", "p(99)&lt;1200" ]
-  http_req_failed: [ "rate&lt;0.01" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/02-ramping-load.yaml">examples/02-ramping-load.yaml</a>
-      </p>
+  http_req_failed: [ "rate&lt;0.01" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/02-ramping-load.yaml">examples/02-ramping-load.yaml</a></p>
       
     </div>
     <div>

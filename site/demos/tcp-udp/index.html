@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#tcp-udpRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="tcp-udpRun"><code data-lang="bash">$ loadr run examples/12-tcp-udp.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/12-tcp-udp.yaml</span><button data-copy="#tcp-udpSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="tcp-udpSrc"><code data-lang="yaml"># Raw socket load: TCP request/response and UDP datagrams, with hex payloads.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/12-tcp-udp.yaml</span><button data-copy="#tcp-udpSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="tcp-udpSrc"><code data-lang="yaml"># Raw socket load: TCP request/response and UDP datagrams, with hex payloads.
 name: raw-sockets
 description: TCP and UDP round trips
 
@@ -81,11 +79,7 @@ scenarios:
             read_timeout: 500ms
 
 thresholds:
-  tcp_req_duration: [ "p(99)&lt;50" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/12-tcp-udp.yaml">examples/12-tcp-udp.yaml</a>
-      </p>
+  tcp_req_duration: [ "p(99)&lt;50" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/12-tcp-udp.yaml">examples/12-tcp-udp.yaml</a></p>
       
     </div>
     <div>

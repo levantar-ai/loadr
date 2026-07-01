@@ -145,6 +145,7 @@ DEMOS = [
         "tagline": "Loops, conditionals, groups and weighted tasks inside a single flow.",
         "description": "Compose realistic user journeys: repeat blocks, branch on extracted values, group related requests for reporting, and weight tasks — all declaratively in the flow.",
         "example": "16-flow-control.yaml",
+        "video": "08-flow-control",
         "highlights": [
             "<code class=\"text-flare\">loop</code> / <code class=\"text-flare\">if</code> / <code class=\"text-flare\">group</code> blocks",
             "Weighted task selection",
@@ -159,6 +160,7 @@ DEMOS = [
         "tagline": "Feed data from CSV/JSON per iteration and cap per-VU request rate.",
         "description": "Drive each iteration from a shared data feeder and throttle how fast a VU may fire, so a big pool doesn't outrun your intended per-user pace.",
         "example": "17-feeders-and-throttle.yaml",
+        "video": "09-feeders-throttle",
         "highlights": [
             "Shared vs per-VU feeder modes",
             "Per-VU throttle keeps pacing realistic",
@@ -204,6 +206,7 @@ DEMOS = [
         "tagline": "One pass over a case table; fail the run on any failed assertion.",
         "description": "loadr doubles as a functional tester: walk a table of cases once (feeder with <code class=\"text-flare\">on_eof: stop</code>), assert each response, and exit non-zero if a single check fails. Drop it into CI as a contract / smoke gate — no separate framework.",
         "example": "41-functional-test.yaml",
+        "video": "02-validation",
         "highlights": [
             "Table-driven cases from a feeder",
             "<code class=\"text-flare\">on_eof: stop</code> = exactly one pass",
@@ -219,6 +222,7 @@ DEMOS = [
         "tagline": "Chain extract-and-assert steps that short-circuit on the first miss.",
         "description": "Fuse extraction and assertion into a chain: each link pulls a value and checks it, and the chain stops at the first failure with a precise cause — richer than a flat list of checks.",
         "example": "25-check-chains.yaml",
+        "video": "12-check-chains",
         "highlights": [
             "JMESPath over JSON bodies",
             "Fused extract + check links",
@@ -234,6 +238,7 @@ DEMOS = [
         "tagline": "Group failures by root cause instead of one undifferentiated error count.",
         "description": "When things break, loadr buckets failures by cause — transport errors, timeouts, bad statuses, failed checks — so you see <em>why</em> the run went red, not just that it did.",
         "example": "26-failure-breakdown.yaml",
+        "video": "13-failure-breakdown",
         "highlights": [
             "Failures grouped by normalized cause",
             "Separates transport vs assertion failures",
@@ -569,7 +574,7 @@ DEMOS = [
         "description": "Every run can emit a single self-contained HTML report — throughput, latency percentiles and errors over time, plus the failure breakdown — with no external services to host.",
         "highlights": ["Self-contained HTML", "Percentiles + throughput over time", "Failure breakdown built in"],
         "docs": "/docs/reporting/overview.html",
-        "video": "05-report",
+        "video": "11-timeseries-report",
     },
 
     # ---- Ops integrations --------------------------------------------------
@@ -590,6 +595,7 @@ DEMOS = [
         "category": "Ops integrations",
         "tagline": "A perf smoke test wired into GitHub Actions that fails the build on regression.",
         "example": "cicd/perf-smoke.yaml",
+        "video": "04-ci-gate",
         "description": "Run a fast perf smoke on every PR: thresholds set the exit code, so a latency or error regression turns the build red. Includes a ready-to-copy GitHub Actions workflow.",
         "example_lang": "yaml",
         "highlights": ["Threshold-gated exit code", "Copy-paste GitHub Actions job", "Fast enough for every PR"],
@@ -619,7 +625,7 @@ DEMOS = [
         "description": "The plugin model is open: implement a protocol in Go (or any language that builds a C-ABI shared object), declare its URL scheme, and <code class=\"text-flare\">loadr plugin install</code> it. This demo drives a Go echo service through a custom plugin.",
         "highlights": ["Native (C-ABI) plugin", "Declare a URL scheme", "Install like any other plugin"],
         "docs": "/docs/plugins/developing.html",
-        "video": "22-write-plugin",
+        "video": "22-go-plugin",
     },
     {
         "slug": "native-protocol-c",
@@ -630,6 +636,52 @@ DEMOS = [
         "description": "The lowest-level extension point: a native protocol plugin written against the C ABI, driving a simple echo server — proof that anything that speaks bytes can become a loadr protocol.",
         "highlights": ["C-ABI protocol plugin", "Byte-level driver", "Same install/verify path"],
         "docs": "/docs/plugins/developing.html",
+    },
+    # ---- Adopt loadr -------------------------------------------------------
+    {
+        "slug": "convert",
+        "title": "Import from k6 & JMeter",
+        "category": "Adopt loadr",
+        "tagline": "Convert an existing k6 script or JMeter .jmx into a loadr plan.",
+        "description": "Already invested in k6 or JMeter? <code class=\"text-flare\">loadr convert</code> translates a k6 script or a JMeter <code class=\"text-flare\">.jmx</code> into an equivalent loadr YAML plan you can run and refine \u2014 no rewrite from scratch, no lock-in either way.",
+        "command": "loadr convert k6-script.js -o plan.yaml",
+        "highlights": [
+            "k6 JavaScript and JMeter <code class=\"text-flare\">.jmx</code> in",
+            "A readable loadr YAML plan out",
+            "Run, diff and refine the result",
+        ],
+        "docs": "/docs/convert/overview.html",
+        "video": "05-convert",
+    },
+    {
+        "slug": "web-ui",
+        "title": "The live Web UI",
+        "category": "Adopt loadr",
+        "tagline": "Drive a run from the browser and watch percentiles, throughput and errors live.",
+        "description": "Add <code class=\"text-flare\">--ui</code> to any run and loadr serves a local live dashboard \u2014 start/stop, live req/s, p95 and error rate, and a streaming timeline. The same engine, in the browser. No account, nothing phones home.",
+        "command": "loadr run examples/01-quickstart.yaml --ui",
+        "highlights": [
+            "One flag: <code class=\"text-flare\">--ui</code>",
+            "Live req/s, p95 and error rate",
+            "Served locally \u2014 zero telemetry",
+        ],
+        "docs": "/docs/webui/overview.html",
+        "video": "07-webui",
+    },
+    {
+        "slug": "agent-fleet",
+        "title": "The agent fleet, in the UI",
+        "category": "Adopt loadr",
+        "tagline": "Watch a distributed controller + agents drive one run from the Web UI.",
+        "description": "Point the Web UI at a distributed run and watch the whole fleet at once \u2014 each agent's contribution and the merged, true-percentile result. The distributed engine with a live face.",
+        "command": "loadr run examples/15-distributed.yaml --ui",
+        "highlights": [
+            "Controller + agents in one view",
+            "Merged HDR percentiles, live",
+            "Distributed load with a UI",
+        ],
+        "docs": "/docs/distributed/overview.html",
+        "video": "10-agent-fleet",
     },
 ]
 
@@ -643,6 +695,7 @@ CATEGORY_ORDER = [
     "Scripting & metrics",
     "Scale & operations",
     "Ops integrations",
+    "Adopt loadr",
     "Extending loadr",
 ]
 CATEGORY_BLURB = {
@@ -655,6 +708,7 @@ CATEGORY_BLURB = {
     "Scripting & metrics": "Reach for JavaScript and custom metrics when YAML isn't enough.",
     "Scale & operations": "Distribute the load, target any environment, and report on it.",
     "Ops integrations": "Wire loadr into Prometheus/Grafana, CI/CD and Kubernetes.",
+    "Adopt loadr": "Bring existing k6/JMeter tests across and drive loadr from the live Web UI.",
     "Extending loadr": "Ship your own protocols and outputs as plugins.",
 }
 CATEGORY_ICON = {
@@ -803,7 +857,7 @@ def card(d):
         + demo_icon(d["category"]) +
         '<div class="min-w-0">'
         f'<h3 class="font-bold text-white">{esc(d["title"])}</h3>'
-        f'<code class="font-mono text-xs text-smoke">{esc(d["example"])}</code>'
+        f'<code class="font-mono text-xs text-smoke">{esc(d.get("example") or d.get("command", ""))}</code>'
         '</div></div>'
         f'<p class="mt-3 flex-1 text-sm text-smoke">{d["tagline"]}</p>'
         f'{curve}'
@@ -891,9 +945,22 @@ def render_index():
 def render_detail(d, prev, nxt):
     slug = d["slug"]
     title = f'{d["title"]} — loadr demo'
-    desc = f'{d["tagline"]} A runnable loadr demo backed by examples/{d["example"]}.'
+    desc = d["tagline"] + (f' A runnable loadr demo backed by examples/{d["example"]}.' if d.get("example") else ' A loadr demo.')
     canonical = f"https://loadr.io/demos/{slug}/"
     lang = d.get("example_lang", "yaml")
+    example = d.get("example")
+    run_cmd = d.get("command") or (f'loadr run examples/{esc(example)}' if example else "")
+    if example:
+        src_block = (
+            f'<div class="codebox mt-4">'
+            f'<div class="codebar"><span>examples/{esc(example)}</span>'
+            f'<button data-copy="#{slug}Src" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>'
+            f'<pre id="{slug}Src"><code data-lang="{lang}">{read_example(example)}</code></pre></div>'
+            f'<p class="mt-4 text-sm text-smoke">View raw: '
+            f'<a class="font-semibold text-flare hover:underline" href="/examples/{esc(example)}">examples/{esc(example)}</a></p>'
+        )
+    else:
+        src_block = ""
 
     highlights = "\n".join(
         f'<li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span>{h}</span></li>'
@@ -958,15 +1025,9 @@ def render_detail(d, prev, nxt):
     <div>
       <div class="codebox">
         <div class="codebar"><span>Run it</span><button data-copy="#{slug}Run" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="{slug}Run"><code data-lang="bash">$ loadr run examples/{esc(d["example"])}</code></pre>
+        <pre id="{slug}Run"><code data-lang="bash">$ {run_cmd}</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/{esc(d["example"])}</span><button data-copy="#{slug}Src" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="{slug}Src"><code data-lang="{lang}">{read_example(d["example"])}</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/{esc(d["example"])}">examples/{esc(d["example"])}</a>
-      </p>
+      {src_block}
       {also}
     </div>
     <div>
@@ -1016,7 +1077,8 @@ def main():
     for d in DEMOS:
         assert d["slug"] not in seen, f"duplicate slug {d['slug']}"
         seen.add(d["slug"])
-        assert (EXAMPLES / d["example"]).is_file(), f"missing example {d['example']}"
+        if d.get("example"):
+            assert (EXAMPLES / d["example"]).is_file(), f"missing example {d['example']}"
 
     (out_dir / "index.html").write_text(render_index(), encoding="utf-8")
     print(f"wrote {out_dir / 'index.html'}")

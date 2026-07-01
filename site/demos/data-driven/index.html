@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#data-drivenRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="data-drivenRun"><code data-lang="bash">$ loadr run examples/05-data-driven.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/05-data-driven.yaml</span><button data-copy="#data-drivenSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="data-drivenSrc"><code data-lang="yaml"># Data-driven login: each iteration takes the next row from users.csv
+      <div class="codebox mt-4"><div class="codebar"><span>examples/05-data-driven.yaml</span><button data-copy="#data-drivenSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="data-drivenSrc"><code data-lang="yaml"># Data-driven login: each iteration takes the next row from users.csv
 # (shared cursor across all VUs, wrapping at EOF).
 name: data-driven-login
 description: CSV-parameterized login flow
@@ -92,11 +90,7 @@ scenarios:
             - { type: jsonpath, name: correct user, expression: "$.username", equals: "${data.users.username}" }
 
 thresholds:
-  checks: [ "rate&gt;0.99" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/05-data-driven.yaml">examples/05-data-driven.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.99" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/05-data-driven.yaml">examples/05-data-driven.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/data/users.csv">data/users.csv</a> · <a class="text-flare hover:underline" href="/examples/data/skus.json">data/skus.json</a></p>
     </div>
     <div>

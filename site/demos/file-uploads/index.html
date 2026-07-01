@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#file-uploadsRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="file-uploadsRun"><code data-lang="bash">$ loadr run examples/37-file-uploads.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/37-file-uploads.yaml</span><button data-copy="#file-uploadsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="file-uploadsSrc"><code data-lang="yaml"># Multipart file uploads — Artillery's `http-file-uploads`.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/37-file-uploads.yaml</span><button data-copy="#file-uploadsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="file-uploadsSrc"><code data-lang="yaml"># Multipart file uploads — Artillery's `http-file-uploads`.
 #
 # A POST with a multipart/form-data body that mixes literal fields with a file
 # part read from disk. `file:` streams the file contents; `filename` and
@@ -91,11 +89,7 @@ scenarios:
 
 thresholds:
   checks: [ "rate&gt;0.99" ]
-  http_req_duration: [ "p(95)&lt;1500" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/37-file-uploads.yaml">examples/37-file-uploads.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;1500" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/37-file-uploads.yaml">examples/37-file-uploads.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/data/upload.txt">data/upload.txt</a></p>
     </div>
     <div>

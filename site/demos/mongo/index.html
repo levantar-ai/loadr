@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#mongoRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="mongoRun"><code data-lang="bash">$ loadr run examples/28-mongo.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/28-mongo.yaml</span><button data-copy="#mongoSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="mongoSrc"><code data-lang="yaml"># MongoDB load test, driven by the `loadr-plugin-mongo` native protocol plugin.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/28-mongo.yaml</span><button data-copy="#mongoSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="mongoSrc"><code data-lang="yaml"># MongoDB load test, driven by the `loadr-plugin-mongo` native protocol plugin.
 #
 # MongoDB support is NOT built into loadr core — it is a runtime-loadable plugin
 # that ships the heavy `mongodb` Rust driver on its own. The plugin declares the
@@ -130,11 +128,7 @@ scenarios:
 
 thresholds:
   checks: [ "rate&gt;0.99" ]
-  mongo_req_duration: [ "p(95)&lt;300ms" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/28-mongo.yaml">examples/28-mongo.yaml</a>
-      </p>
+  mongo_req_duration: [ "p(95)&lt;300ms" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/28-mongo.yaml">examples/28-mongo.yaml</a></p>
       
     </div>
     <div>

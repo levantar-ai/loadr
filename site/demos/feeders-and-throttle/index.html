@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#feeders-and-throttleRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="feeders-and-throttleRun"><code data-lang="bash">$ loadr run examples/17-feeders-and-throttle.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/17-feeders-and-throttle.yaml</span><button data-copy="#feeders-and-throttleSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="feeders-and-throttleSrc"><code data-lang="yaml"># Feeder strategies (Gatling: sequential / random / shuffle, plus JSON feeders)
+      <div class="codebox mt-4"><div class="codebar"><span>examples/17-feeders-and-throttle.yaml</span><button data-copy="#feeders-and-throttleSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="feeders-and-throttleSrc"><code data-lang="yaml"># Feeder strategies (Gatling: sequential / random / shuffle, plus JSON feeders)
 # and a global request-rate ceiling (Gatling throttle / reachRps).
 name: feeders-and-throttle
 description: random/shuffle/JSON data feeders + a hard RPS cap
@@ -95,11 +93,7 @@ scenarios:
 thresholds:
   # With the throttle, http_reqs/s should hover at the ceiling, not above.
   http_reqs: [ "rate&lt;=205" ]
-  http_req_duration: [ "p(95)&lt;400" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/17-feeders-and-throttle.yaml">examples/17-feeders-and-throttle.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;400" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/17-feeders-and-throttle.yaml">examples/17-feeders-and-throttle.yaml</a></p>
       
     </div>
     <div>
@@ -114,6 +108,11 @@ thresholds:
       </div>
       
       
+      <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
+        <video controls preload="none" aria-label="Demo: Feeders &amp; throttling" poster="/videos/09-feeders-throttle-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/09-feeders-throttle.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="mt-6 flex flex-wrap gap-4">
         <a href="/download/" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Download &amp; run →</a>
         <a href="/docs/yaml/data.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>

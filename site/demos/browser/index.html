@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#browserRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="browserRun"><code data-lang="bash">$ loadr run examples/20-browser.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/20-browser.yaml</span><button data-copy="#browserSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="browserSrc"><code data-lang="yaml"># Real-browser load test: drive headless Chrome over CDP and capture
+      <div class="codebox mt-4"><div class="codebar"><span>examples/20-browser.yaml</span><button data-copy="#browserSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="browserSrc"><code data-lang="yaml"># Real-browser load test: drive headless Chrome over CDP and capture
 # Navigation Timing + Web Vitals (FCP, LCP, DCL, load) for a page.
 #
 # Unlike the protocol-level `http` client, the `browser` protocol renders the
@@ -84,11 +82,7 @@ scenarios:
 thresholds:
   # Browser samples feed the generic `plugin_*` family (plus http_req_failed).
   plugin_req_duration: [ "p(95)&lt;5000" ]
-  http_req_failed: [ "rate&lt;0.01" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/20-browser.yaml">examples/20-browser.yaml</a>
-      </p>
+  http_req_failed: [ "rate&lt;0.01" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/20-browser.yaml">examples/20-browser.yaml</a></p>
       
     </div>
     <div>

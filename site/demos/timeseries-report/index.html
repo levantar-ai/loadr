@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#timeseries-reportRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="timeseries-reportRun"><code data-lang="bash">$ loadr run examples/24-timeseries-report.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/24-timeseries-report.yaml</span><button data-copy="#timeseries-reportSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="timeseries-reportSrc"><code data-lang="yaml"># Time-series report demo: a ramp-up / spike / ramp-down profile that produces
+      <div class="codebox mt-4"><div class="codebar"><span>examples/24-timeseries-report.yaml</span><button data-copy="#timeseries-reportSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="timeseries-reportSrc"><code data-lang="yaml"># Time-series report demo: a ramp-up / spike / ramp-down profile that produces
 # an interesting shape over time. Run it, export the summary, then render the
 # self-contained HTML report — every metric is charted against elapsed time
 # (throughput, latency p50/p95/p99, active VUs, error rate), not just shown as
@@ -95,11 +93,7 @@ scenarios:
 
 thresholds:
   http_req_failed: [ "rate&lt;0.05" ]
-  http_req_duration: [ "p(95)&lt;1500" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/24-timeseries-report.yaml">examples/24-timeseries-report.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;1500" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/24-timeseries-report.yaml">examples/24-timeseries-report.yaml</a></p>
       
     </div>
     <div>
@@ -115,8 +109,8 @@ thresholds:
       
       
       <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
-        <video controls preload="none" aria-label="Demo: Time-series HTML report" poster="/videos/05-report-poster.jpg" class="aspect-video w-full bg-ink">
-          <source src="/videos/05-report.mp4" type="video/mp4">
+        <video controls preload="none" aria-label="Demo: Time-series HTML report" poster="/videos/11-timeseries-report-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/11-timeseries-report.mp4" type="video/mp4">
         </video>
       </div>
       <div class="mt-6 flex flex-wrap gap-4">

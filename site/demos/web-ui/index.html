@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="/assets/consent.js"></script>
-<title>Per-VU auth tokens + refresh — loadr demo</title>
-<meta name="description" content="Each VU mints its own token and silently refreshes it before expiry. A runnable loadr demo backed by examples/36-auth-tokens.yaml.">
-<meta property="og:title" content="Per-VU auth tokens + refresh — loadr demo">
-<meta property="og:description" content="Each VU mints its own token and silently refreshes it before expiry. A runnable loadr demo backed by examples/36-auth-tokens.yaml.">
-<meta property="og:url" content="https://loadr.io/demos/auth-tokens/">
+<title>The live Web UI — loadr demo</title>
+<meta name="description" content="Drive a run from the browser and watch percentiles, throughput and errors live. A loadr demo.">
+<meta property="og:title" content="The live Web UI — loadr demo">
+<meta property="og:description" content="Drive a run from the browser and watch percentiles, throughput and errors live. A loadr demo.">
+<meta property="og:url" content="https://loadr.io/demos/web-ui/">
 <meta property="og:type" content="website">
-<link rel="canonical" href="https://loadr.io/demos/auth-tokens/">
+<link rel="canonical" href="https://loadr.io/demos/web-ui/">
 <link rel="icon" type="image/png" sizes="64x64" href="/assets/favicon-64.png">
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
 <link rel="stylesheet" href="/assets/site.css">
@@ -26,14 +26,14 @@
     <nav class="flex items-center gap-2 text-sm text-smoke">
       <a class="hover:text-flare" href="/demos/">Demos</a>
       <span class="text-edge-bright">/</span>
-      <span class="text-ash">Per-VU auth tokens + refresh</span>
+      <span class="text-ash">The live Web UI</span>
     </nav>
     <div class="mt-4 flex items-center gap-4">
-      <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-edge bg-coal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fd1e2e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l7 4v6c0 5-3 7-7 8-4-1-7-3-7-8V6z"/></svg></span>
-      <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">Per-VU auth tokens + refresh</h1>
-      <span class="rounded-full border border-edge bg-coal px-3 py-1 text-xs text-ash">Auth, sessions &amp; uploads</span>
+      <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-edge bg-coal"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fd1e2e" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+      <h1 class="text-3xl font-black tracking-tight text-white sm:text-4xl">The live Web UI</h1>
+      <span class="rounded-full border border-edge bg-coal px-3 py-1 text-xs text-ash">Adopt loadr</span>
     </div>
-    <p class="mt-5 max-w-2xl text-lg text-smoke">Each VU mints a token the first time it needs one, attaches it to every request, and transparently re-mints it just before expiry — with a custom <code class="text-flare">token_refreshes</code> counter tracking how often. Swap the synthetic mint for a call to your auth server.</p>
+    <p class="mt-5 max-w-2xl text-lg text-smoke">Add <code class="text-flare">--ui</code> to any run and loadr serves a local live dashboard — start/stop, live req/s, p95 and error rate, and a streaming timeline. The same engine, in the browser. No account, nothing phones home.</p>
   </div>
 </section>
 
@@ -42,67 +42,32 @@
   <div class="mx-auto grid max-w-5xl gap-8 px-5 lg:grid-cols-2">
     <div>
       <div class="codebox">
-        <div class="codebar"><span>Run it</span><button data-copy="#auth-tokensRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="auth-tokensRun"><code data-lang="bash">$ loadr run examples/36-auth-tokens.yaml</code></pre>
+        <div class="codebar"><span>Run it</span><button data-copy="#web-uiRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
+        <pre id="web-uiRun"><code data-lang="bash">$ loadr run examples/01-quickstart.yaml --ui</code></pre>
       </div>
-      <div class="codebox mt-4"><div class="codebar"><span>examples/36-auth-tokens.yaml</span><button data-copy="#auth-tokensSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="auth-tokensSrc"><code data-lang="yaml"># Per-VU auth tokens with automatic refresh — Artillery's `generating-vu-tokens`
-# + `refresh-auth-token` in one place.
-#
-# Each VU mints its own token the first time it needs one (scripts/auth.js,
-# beforeRequest hook), attaches it to every request, and silently re-mints it
-# just before it expires. A custom `token_refreshes` counter tracks how often
-# that happens. Swap the synthetic mint() for a real call to your auth server.
-#
-#   loadr run examples/36-auth-tokens.yaml
-name: auth-tokens
-description: Per-VU token minting + transparent refresh before expiry
-
-defaults:
-  http:
-    base_url: https://api.example.com
-
-js:
-  file: scripts/auth.js
-  timeout: 5s
-
-metrics:
-  token_refreshes: { kind: counter }
-
-scenarios:
-  authed_traffic:
-    executor: constant-vus
-    vus: 10
-    duration: 1m
-    flow:
-      - request:
-          name: profile
-          url: /me
-          checks: [ { type: status, equals: 200 } ]
-      - think_time: { type: uniform, min: 200ms, max: 800ms }
-      - request:
-          name: orders
-          url: /orders
-          checks: [ { type: status, equals: 200 } ]
-
-thresholds:
-  checks: [ "rate&gt;0.99" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/36-auth-tokens.yaml">examples/36-auth-tokens.yaml</a></p>
-      <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/scripts/auth.js">scripts/auth.js</a></p>
+      
+      
     </div>
     <div>
       <div class="rounded-2xl border border-edge bg-panel p-6">
         <h2 class="text-lg font-bold text-white">What it shows</h2>
         <ul class="mt-4 space-y-2.5 text-sm text-ash">
-          <li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span><code class="text-flare">beforeRequest</code> JS hook mints/refreshes</span></li>
-<li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span>Per-VU token state</span></li>
-<li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span>Custom <code class="text-flare">counter</code> metric for refreshes</span></li>
+          <li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span>One flag: <code class="text-flare">--ui</code></span></li>
+<li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span>Live req/s, p95 and error rate</span></li>
+<li class="flex gap-2"><span class="mt-0.5 text-ember">▸</span><span>Served locally — zero telemetry</span></li>
         </ul>
-        <p class="mt-6 text-sm text-smoke">Key metrics: <code class="text-flare">token_refreshes</code>.</p>
+        
       </div>
       
       
+      <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
+        <video controls preload="none" aria-label="Demo: The live Web UI" poster="/videos/07-webui-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/07-webui.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="mt-6 flex flex-wrap gap-4">
         <a href="/download/" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Download &amp; run →</a>
-        <a href="/docs/js/api.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>
+        <a href="/docs/webui/overview.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>
       </div>
     </div>
   </div>
@@ -111,9 +76,9 @@ thresholds:
 <!-- ======================================================= PREV / NEXT -->
 <section class="border-t border-edge/60 bg-coal/40 py-10">
   <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 text-sm">
-    <a class="text-smoke hover:text-flare" href="/demos/tags/">← Tags &amp; per-route metrics</a>
+    <a class="text-smoke hover:text-flare" href="/demos/convert/">← Import from k6 &amp; JMeter</a>
     <a class="font-semibold text-flare hover:underline" href="/demos/">All demos</a>
-    <a class="text-smoke hover:text-flare" href="/demos/cookies-session/">Cookie-based sessions →</a>
+    <a class="text-smoke hover:text-flare" href="/demos/agent-fleet/">The agent fleet, in the UI →</a>
   </div>
 </section>
 

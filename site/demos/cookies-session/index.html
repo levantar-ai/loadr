@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#cookies-sessionRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="cookies-sessionRun"><code data-lang="bash">$ loadr run examples/38-cookies-session.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/38-cookies-session.yaml</span><button data-copy="#cookies-sessionSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="cookies-sessionSrc"><code data-lang="yaml"># Cookie-based sessions — Artillery's `using-cookies`.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/38-cookies-session.yaml</span><button data-copy="#cookies-sessionSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="cookies-sessionSrc"><code data-lang="yaml"># Cookie-based sessions — Artillery's `using-cookies`.
 #
 # loadr keeps a per-VU cookie jar (on by default). `Set-Cookie` from the login
 # response is stored and replayed automatically on every later request in that
@@ -93,11 +91,7 @@ scenarios:
           checks: [ { type: status, equals: 200 } ]
 
 thresholds:
-  checks: [ "rate&gt;0.99" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/38-cookies-session.yaml">examples/38-cookies-session.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.99" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/38-cookies-session.yaml">examples/38-cookies-session.yaml</a></p>
       
     </div>
     <div>

@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#correlationRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="correlationRun"><code data-lang="bash">$ loadr run examples/06-correlation.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/06-correlation.yaml</span><button data-copy="#correlationSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="correlationSrc"><code data-lang="yaml"># Correlation: extract values from earlier responses (regex, CSS selector,
+      <div class="codebox mt-4"><div class="codebar"><span>examples/06-correlation.yaml</span><button data-copy="#correlationSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="correlationSrc"><code data-lang="yaml"># Correlation: extract values from earlier responses (regex, CSS selector,
 # JSONPath, headers, boundary) and reuse them in later requests.
 name: correlation
 description: extract CSRF + session values and chain requests
@@ -90,11 +88,7 @@ scenarios:
           name: order status
           url: /orders/${order_id}
           checks:
-            - { type: jsonpath, name: order is pending, expression: "$.status", equals: pending }</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/06-correlation.yaml">examples/06-correlation.yaml</a>
-      </p>
+            - { type: jsonpath, name: order is pending, expression: "$.status", equals: pending }</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/06-correlation.yaml">examples/06-correlation.yaml</a></p>
       
     </div>
     <div>

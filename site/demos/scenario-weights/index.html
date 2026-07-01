@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#scenario-weightsRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="scenario-weightsRun"><code data-lang="bash">$ loadr run examples/40-scenario-weights.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/40-scenario-weights.yaml</span><button data-copy="#scenario-weightsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="scenario-weightsSrc"><code data-lang="yaml"># Weighted traffic mix — Artillery's `scenario-weights` (Locust @task weights /
+      <div class="codebox mt-4"><div class="codebar"><span>examples/40-scenario-weights.yaml</span><button data-copy="#scenario-weightsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="scenario-weightsSrc"><code data-lang="yaml"># Weighted traffic mix — Artillery's `scenario-weights` (Locust @task weights /
 # Gatling randomSwitch).
 #
 # A single scenario whose flow picks one weighted branch per iteration: 70% just
@@ -94,11 +92,7 @@ scenarios:
 
 thresholds:
   http_req_failed: [ "rate&lt;0.01" ]
-  http_req_duration: [ "p(95)&lt;500" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/40-scenario-weights.yaml">examples/40-scenario-weights.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;500" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/40-scenario-weights.yaml">examples/40-scenario-weights.yaml</a></p>
       
     </div>
     <div>

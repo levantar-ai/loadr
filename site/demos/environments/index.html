@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#environmentsRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="environmentsRun"><code data-lang="bash">$ loadr run examples/13-environments.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/13-environments.yaml</span><button data-copy="#environmentsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="environmentsSrc"><code data-lang="yaml"># One test, many environments: `loadr run -e staging examples/13-environments.yaml`
+      <div class="codebox mt-4"><div class="codebar"><span>examples/13-environments.yaml</span><button data-copy="#environmentsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="environmentsSrc"><code data-lang="yaml"># One test, many environments: `loadr run -e staging examples/13-environments.yaml`
 # deep-merges the env block over the file. Secrets come from the process
 # environment and are never printed.
 name: environments
@@ -93,11 +91,7 @@ scenarios:
             - { type: status, equals: 200 }
 
 thresholds:
-  http_req_duration: [ "p(95)&lt;400" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/13-environments.yaml">examples/13-environments.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;400" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/13-environments.yaml">examples/13-environments.yaml</a></p>
       
     </div>
     <div>

@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#tagsRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="tagsRun"><code data-lang="bash">$ loadr run examples/23-tags.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/23-tags.yaml</span><button data-copy="#tagsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="tagsSrc"><code data-lang="yaml"># Tagged scenarios for selective runs. Each scenario carries `tags` (a map of
+      <div class="codebox mt-4"><div class="codebar"><span>examples/23-tags.yaml</span><button data-copy="#tagsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="tagsSrc"><code data-lang="yaml"># Tagged scenarios for selective runs. Each scenario carries `tags` (a map of
 # name → value); `loadr run` filters scenarios by their tag *values*.
 #
 #   loadr run examples/23-tags.yaml                          # all four scenarios
@@ -119,11 +117,7 @@ scenarios:
           checks: [ { type: status, equals: 201 } ]
 
 thresholds:
-  "http_req_duration{scenario:full_read}": [ "p(95)&lt;400" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/23-tags.yaml">examples/23-tags.yaml</a>
-      </p>
+  "http_req_duration{scenario:full_read}": [ "p(95)&lt;400" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/23-tags.yaml">examples/23-tags.yaml</a></p>
       
     </div>
     <div>

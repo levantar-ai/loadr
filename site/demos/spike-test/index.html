@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#spike-testRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="spike-testRun"><code data-lang="bash">$ loadr run examples/04-spike-test.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/04-spike-test.yaml</span><button data-copy="#spike-testSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="spike-testSrc"><code data-lang="yaml"># Spike test with a ramping arrival rate: calm baseline, sudden 10x spike,
+      <div class="codebox mt-4"><div class="codebar"><span>examples/04-spike-test.yaml</span><button data-copy="#spike-testSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="spike-testSrc"><code data-lang="yaml"># Spike test with a ramping arrival rate: calm baseline, sudden 10x spike,
 # recovery. The abort threshold kills the run if errors explode.
 name: spike-test
 description: baseline -&gt; 10x spike -&gt; recovery
@@ -82,11 +80,7 @@ scenarios:
 thresholds:
   http_req_failed:
     - { threshold: "rate&lt;0.05", abort_on_fail: true, delay_abort_eval: 30s }
-  http_req_duration: [ "p(95)&lt;2000" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/04-spike-test.yaml">examples/04-spike-test.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;2000" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/04-spike-test.yaml">examples/04-spike-test.yaml</a></p>
       
     </div>
     <div>

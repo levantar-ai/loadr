@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#http-advancedRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="http-advancedRun"><code data-lang="bash">$ loadr run examples/21-http-advanced.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/21-http-advanced.yaml</span><button data-copy="#http-advancedSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="http-advancedSrc"><code data-lang="yaml"># Advanced HTTP defaults: the "power features" of the HTTP client, all in one
+      <div class="codebox mt-4"><div class="codebar"><span>examples/21-http-advanced.yaml</span><button data-copy="#http-advancedSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="http-advancedSrc"><code data-lang="yaml"># Advanced HTTP defaults: the "power features" of the HTTP client, all in one
 # test. Exercises:
 #   - cache: true                 per-VU browser-style HTTP cache (fresh hits +
 #                                 ETag/Last-Modified revalidation)
@@ -114,11 +112,7 @@ scenarios:
 thresholds:
   http_req_duration: [ "p(95)&lt;2000" ]
   http_req_failed: [ "rate&lt;0.05" ]
-  checks: [ "rate&gt;0.95" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/21-http-advanced.yaml">examples/21-http-advanced.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.95" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/21-http-advanced.yaml">examples/21-http-advanced.yaml</a></p>
       
     </div>
     <div>

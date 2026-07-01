@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#grpcRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="grpcRun"><code data-lang="bash">$ loadr run examples/10-grpc.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/10-grpc.yaml</span><button data-copy="#grpcSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="grpcSrc"><code data-lang="yaml"># gRPC load: compile .proto files in-process (no protoc needed) or use
+      <div class="codebox mt-4"><div class="codebar"><span>examples/10-grpc.yaml</span><button data-copy="#grpcSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="grpcSrc"><code data-lang="yaml"># gRPC load: compile .proto files in-process (no protoc needed) or use
 # server reflection, then call unary and streaming methods dynamically.
 name: grpc
 description: unary + server-streaming gRPC calls
@@ -90,11 +88,7 @@ scenarios:
             - { type: status, equals: 0 }
 
 thresholds:
-  grpc_req_duration: [ "p(95)&lt;150" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/10-grpc.yaml">examples/10-grpc.yaml</a>
-      </p>
+  grpc_req_duration: [ "p(95)&lt;150" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/10-grpc.yaml">examples/10-grpc.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/protos">protos</a></p>
     </div>
     <div>

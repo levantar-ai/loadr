@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#prometheus-grafanaRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="prometheus-grafanaRun"><code data-lang="bash">$ loadr run examples/prometheus-grafana/loadr.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/prometheus-grafana/loadr.yaml</span><button data-copy="#prometheus-grafanaSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="prometheus-grafanaSrc"><code data-lang="yaml"># Live metrics in Prometheus + Grafana — Artillery's
+      <div class="codebox mt-4"><div class="codebar"><span>examples/prometheus-grafana/loadr.yaml</span><button data-copy="#prometheus-grafanaSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="prometheus-grafanaSrc"><code data-lang="yaml"># Live metrics in Prometheus + Grafana — Artillery's
 # `prometheus-grafana-dashboards`.
 #
 # loadr exposes a Prometheus scrape endpoint while the test runs; Prometheus
@@ -80,11 +78,7 @@ outputs:
 
 thresholds:
   http_req_duration: [ "p(95)&lt;400" ]
-  http_req_failed: [ "rate&lt;0.02" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/prometheus-grafana/loadr.yaml">examples/prometheus-grafana/loadr.yaml</a>
-      </p>
+  http_req_failed: [ "rate&lt;0.02" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/prometheus-grafana/loadr.yaml">examples/prometheus-grafana/loadr.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/prometheus-grafana/docker-compose.yml">prometheus-grafana/docker-compose.yml</a> · <a class="text-flare hover:underline" href="/examples/prometheus-grafana/grafana-dashboard.json">prometheus-grafana/grafana-dashboard.json</a> · <a class="text-flare hover:underline" href="/examples/prometheus-grafana/README.md">prometheus-grafana/README.md</a></p>
     </div>
     <div>

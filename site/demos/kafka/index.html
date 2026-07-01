@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#kafkaRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="kafkaRun"><code data-lang="bash">$ loadr run examples/31-kafka.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/31-kafka.yaml</span><button data-copy="#kafkaSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="kafkaSrc"><code data-lang="yaml"># Apache Kafka load test, driven by the `loadr-plugin-kafka` native protocol
+      <div class="codebox mt-4"><div class="codebar"><span>examples/31-kafka.yaml</span><button data-copy="#kafkaSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="kafkaSrc"><code data-lang="yaml"># Apache Kafka load test, driven by the `loadr-plugin-kafka` native protocol
 # plugin.
 #
 # Kafka support is NOT built into loadr core — it is a runtime-loadable plugin
@@ -120,11 +118,7 @@ scenarios:
 thresholds:
   checks: [ "rate&gt;0.99" ]
   kafka_req_duration: [ "p(95)&lt;1s" ]
-  kafka_reqs: [ "count&gt;0" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/31-kafka.yaml">examples/31-kafka.yaml</a>
-      </p>
+  kafka_reqs: [ "count&gt;0" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/31-kafka.yaml">examples/31-kafka.yaml</a></p>
       
     </div>
     <div>

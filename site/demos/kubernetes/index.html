@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#kubernetesRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="kubernetesRun"><code data-lang="bash">$ loadr run examples/k8s/run-job.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/k8s/run-job.yaml</span><button data-copy="#kubernetesSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="kubernetesSrc"><code data-lang="yaml"># Submit a run to the controller; the load fans out across all agent pods.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/k8s/run-job.yaml</span><button data-copy="#kubernetesSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="kubernetesSrc"><code data-lang="yaml"># Submit a run to the controller; the load fans out across all agent pods.
 # The plan is mounted from a ConfigMap so you can edit it without rebuilding.
 apiVersion: v1
 kind: ConfigMap
@@ -94,11 +92,7 @@ spec:
           # Submit to the controller API; exit code reflects thresholds (0/99).
           args: ["run", "--controller", "loadr-controller:6464", "/plans/perf.yaml"]
           volumeMounts:
-            - { name: plan, mountPath: /plans }</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/k8s/run-job.yaml">examples/k8s/run-job.yaml</a>
-      </p>
+            - { name: plan, mountPath: /plans }</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/k8s/run-job.yaml">examples/k8s/run-job.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/k8s/controller.yaml">k8s/controller.yaml</a> · <a class="text-flare hover:underline" href="/examples/k8s/agents.yaml">k8s/agents.yaml</a> · <a class="text-flare hover:underline" href="/examples/k8s/README.md">k8s/README.md</a></p>
     </div>
     <div>

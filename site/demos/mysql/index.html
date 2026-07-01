@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#mysqlRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="mysqlRun"><code data-lang="bash">$ loadr run examples/29-mysql.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/29-mysql.yaml</span><button data-copy="#mysqlSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="mysqlSrc"><code data-lang="yaml"># MySQL load test, driven by the `loadr-plugin-mysql` native protocol plugin.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/29-mysql.yaml</span><button data-copy="#mysqlSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="mysqlSrc"><code data-lang="yaml"># MySQL load test, driven by the `loadr-plugin-mysql` native protocol plugin.
 #
 # MySQL support is NOT built into loadr core — it is a runtime-loadable plugin
 # that ships the heavy `sqlx` Rust driver on its own (with ONLY the `mysql`
@@ -107,11 +105,7 @@ scenarios:
 thresholds:
   checks: [ "rate&gt;0.99" ]
   mysql_req_duration: [ "p(95)&lt;300ms" ]
-  mysql_reqs: [ "count&gt;0" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/29-mysql.yaml">examples/29-mysql.yaml</a>
-      </p>
+  mysql_reqs: [ "count&gt;0" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/29-mysql.yaml">examples/29-mysql.yaml</a></p>
       
     </div>
     <div>

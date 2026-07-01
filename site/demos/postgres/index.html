@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#postgresRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="postgresRun"><code data-lang="bash">$ loadr run examples/27-postgres.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/27-postgres.yaml</span><button data-copy="#postgresSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="postgresSrc"><code data-lang="yaml"># PostgreSQL load test, driven by the `loadr-plugin-postgres` native protocol
+      <div class="codebox mt-4"><div class="codebar"><span>examples/27-postgres.yaml</span><button data-copy="#postgresSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="postgresSrc"><code data-lang="yaml"># PostgreSQL load test, driven by the `loadr-plugin-postgres` native protocol
 # plugin.
 #
 # PostgreSQL support is NOT built into loadr core — it is a runtime-loadable
@@ -115,11 +113,7 @@ scenarios:
 thresholds:
   checks: [ "rate&gt;0.99" ]
   postgres_req_duration: [ "p(95)&lt;300ms" ]
-  postgres_reqs: [ "count&gt;0" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/27-postgres.yaml">examples/27-postgres.yaml</a>
-      </p>
+  postgres_reqs: [ "count&gt;0" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/27-postgres.yaml">examples/27-postgres.yaml</a></p>
       
     </div>
     <div>

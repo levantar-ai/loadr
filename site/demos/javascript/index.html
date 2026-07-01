@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#javascriptRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="javascriptRun"><code data-lang="bash">$ loadr run examples/08-javascript.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/08-javascript.yaml</span><button data-copy="#javascriptSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="javascriptSrc"><code data-lang="yaml"># Full JavaScript lifecycle: setup() fetches an auth token once, every
+      <div class="codebox mt-4"><div class="codebar"><span>examples/08-javascript.yaml</span><button data-copy="#javascriptSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="javascriptSrc"><code data-lang="yaml"># Full JavaScript lifecycle: setup() fetches an auth token once, every
 # iteration runs an exported function, beforeRequest/afterRequest hooks fire
 # around YAML requests, teardown() cleans up.
 name: javascript-lifecycle
@@ -85,11 +83,7 @@ metrics:
   page_render_budget: { kind: trend, time: true }
 
 thresholds:
-  checks: [ "rate&gt;0.98" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/08-javascript.yaml">examples/08-javascript.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.98" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/08-javascript.yaml">examples/08-javascript.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/scripts/helpers.js">scripts/helpers.js</a></p>
     </div>
     <div>

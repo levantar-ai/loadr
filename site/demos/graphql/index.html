@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#graphqlRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="graphqlRun"><code data-lang="bash">$ loadr run examples/11-graphql.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/11-graphql.yaml</span><button data-copy="#graphqlSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="graphqlSrc"><code data-lang="yaml"># GraphQL over HTTP with variables; GraphQL `errors` are detected and the
+      <div class="codebox mt-4"><div class="codebar"><span>examples/11-graphql.yaml</span><button data-copy="#graphqlSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="graphqlSrc"><code data-lang="yaml"># GraphQL over HTTP with variables; GraphQL `errors` are detected and the
 # request is marked failed when no data comes back.
 name: graphql
 description: GraphQL queries with variables
@@ -93,11 +91,7 @@ scenarios:
             variables: { id: "${first_id}" }
 
 thresholds:
-  graphql_req_duration: [ "p(95)&lt;400" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/11-graphql.yaml">examples/11-graphql.yaml</a>
-      </p>
+  graphql_req_duration: [ "p(95)&lt;400" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/11-graphql.yaml">examples/11-graphql.yaml</a></p>
       
     </div>
     <div>

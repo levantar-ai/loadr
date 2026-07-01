@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#check-chainsRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="check-chainsRun"><code data-lang="bash">$ loadr run examples/25-check-chains.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/25-check-chains.yaml</span><button data-copy="#check-chainsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="check-chainsSrc"><code data-lang="yaml"># Fused check-chains: extract → coerce type → transform → validate → save,
+      <div class="codebox mt-4"><div class="codebar"><span>examples/25-check-chains.yaml</span><button data-copy="#check-chainsSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="check-chainsSrc"><code data-lang="yaml"># Fused check-chains: extract → coerce type → transform → validate → save,
 # all in one declarative `extract:` step (Gatling-style). Chains live happily
 # next to the classic `type:`-tagged extractors — mix them freely.
 #
@@ -124,11 +122,7 @@ scenarios:
 
 thresholds:
   http_req_failed: ["rate&lt;0.01"]
-  checks: ["rate&gt;0.99"]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/25-check-chains.yaml">examples/25-check-chains.yaml</a>
-      </p>
+  checks: ["rate&gt;0.99"]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/25-check-chains.yaml">examples/25-check-chains.yaml</a></p>
       
     </div>
     <div>
@@ -143,6 +137,11 @@ thresholds:
       </div>
       
       
+      <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
+        <video controls preload="none" aria-label="Demo: JMESPath &amp; fused check-chains" poster="/videos/12-check-chains-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/12-check-chains.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="mt-6 flex flex-wrap gap-4">
         <a href="/download/" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Download &amp; run →</a>
         <a href="/docs/yaml/checks.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>

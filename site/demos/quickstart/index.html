@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#quickstartRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="quickstartRun"><code data-lang="bash">$ loadr run examples/01-quickstart.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/01-quickstart.yaml</span><button data-copy="#quickstartSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="quickstartSrc"><code data-lang="yaml"># The smallest useful loadr test: 10 virtual users hammering one endpoint
+      <div class="codebox mt-4"><div class="codebar"><span>examples/01-quickstart.yaml</span><button data-copy="#quickstartSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="quickstartSrc"><code data-lang="yaml"># The smallest useful loadr test: 10 virtual users hammering one endpoint
 # for 30 seconds, with checks and a pass/fail threshold.
 #
 #   loadr run examples/01-quickstart.yaml
@@ -76,11 +74,7 @@ scenarios:
 thresholds:
   http_req_duration: [ "p(95)&lt;1000" ]
   http_req_failed: [ "rate&lt;0.01" ]
-  checks: [ "rate&gt;0.95" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/01-quickstart.yaml">examples/01-quickstart.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.95" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/01-quickstart.yaml">examples/01-quickstart.yaml</a></p>
       
     </div>
     <div>

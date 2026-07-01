@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#lifecycleRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="lifecycleRun"><code data-lang="bash">$ loadr run examples/22-lifecycle.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/22-lifecycle.yaml</span><button data-copy="#lifecycleSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="lifecycleSrc"><code data-lang="yaml"># Scenario lifecycle hooks + a custom summary report.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/22-lifecycle.yaml</span><button data-copy="#lifecycleSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="lifecycleSrc"><code data-lang="yaml"># Scenario lifecycle hooks + a custom summary report.
 #
 # Each VU logs in once via the scenario `on_start` hook, runs its `exec`
 # function every iteration, then logs out once via `on_stop` when it retires.
@@ -73,11 +71,7 @@ scenarios:
     on_stop: logout     # once per VU, when it retires
 
 thresholds:
-  http_req_duration: [ "p(95)&lt;500" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/22-lifecycle.yaml">examples/22-lifecycle.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;500" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/22-lifecycle.yaml">examples/22-lifecycle.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/scripts/lifecycle.js">scripts/lifecycle.js</a></p>
     </div>
     <div>

@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#flow-controlRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="flow-controlRun"><code data-lang="bash">$ loadr run examples/16-flow-control.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/16-flow-control.yaml</span><button data-copy="#flow-controlSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="flow-controlSrc"><code data-lang="yaml"># Flow control: repeat, while, if/else and weighted random branches —
+      <div class="codebox mt-4"><div class="codebar"><span>examples/16-flow-control.yaml</span><button data-copy="#flow-controlSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="flow-controlSrc"><code data-lang="yaml"># Flow control: repeat, while, if/else and weighted random branches —
 # the control flow from Gatling (repeat/during/doIf/randomSwitch) and the
 # weighted-task model from Locust, in declarative YAML.
 name: flow-control
@@ -119,11 +117,7 @@ scenarios:
 
 thresholds:
   http_req_failed: [ "rate&lt;0.1" ]
-  checks: [ "rate&gt;0.8" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/16-flow-control.yaml">examples/16-flow-control.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.8" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/16-flow-control.yaml">examples/16-flow-control.yaml</a></p>
       
     </div>
     <div>
@@ -138,6 +132,11 @@ thresholds:
       </div>
       
       
+      <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
+        <video controls preload="none" aria-label="Demo: Flow control &amp; weighted tasks" poster="/videos/08-flow-control-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/08-flow-control.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="mt-6 flex flex-wrap gap-4">
         <a href="/download/" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Download &amp; run →</a>
         <a href="/docs/yaml/flow.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>

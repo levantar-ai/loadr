@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#write-plugin-goRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="write-plugin-goRun"><code data-lang="bash">$ loadr run examples/35-go-echo.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/35-go-echo.yaml</span><button data-copy="#write-plugin-goSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="write-plugin-goSrc"><code data-lang="yaml"># A protocol plugin written in Go, loaded over loadr's frozen C ABI.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/35-go-echo.yaml</span><button data-copy="#write-plugin-goSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="write-plugin-goSrc"><code data-lang="yaml"># A protocol plugin written in Go, loaded over loadr's frozen C ABI.
 #
 # Like the c-echo example, go-echo is NOT a Rust plugin: it's a Go shared
 # library (`go build -buildmode=c-shared`) exporting the four `extern "C"`
@@ -86,11 +84,7 @@ scenarios:
           body: "ping-from-loadr-${vu}-${iteration}"
           assert:
             - { type: status, equals: 200 }                 # 200 = ok
-            - { type: body_contains, value: "ping-from-loadr" }</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/35-go-echo.yaml">examples/35-go-echo.yaml</a>
-      </p>
+            - { type: body_contains, value: "ping-from-loadr" }</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/35-go-echo.yaml">examples/35-go-echo.yaml</a></p>
       
     </div>
     <div>
@@ -106,8 +100,8 @@ scenarios:
       
       
       <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
-        <video controls preload="none" aria-label="Demo: Write a plugin in Go" poster="/videos/22-write-plugin-poster.jpg" class="aspect-video w-full bg-ink">
-          <source src="/videos/22-write-plugin.mp4" type="video/mp4">
+        <video controls preload="none" aria-label="Demo: Write a plugin in Go" poster="/videos/22-go-plugin-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/22-go-plugin.mp4" type="video/mp4">
         </video>
       </div>
       <div class="mt-6 flex flex-wrap gap-4">

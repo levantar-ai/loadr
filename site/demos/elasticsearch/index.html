@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#elasticsearchRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="elasticsearchRun"><code data-lang="bash">$ loadr run examples/33-elasticsearch.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/33-elasticsearch.yaml</span><button data-copy="#elasticsearchSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="elasticsearchSrc"><code data-lang="yaml"># Elasticsearch load test, driven by the `loadr-plugin-elasticsearch` native
+      <div class="codebox mt-4"><div class="codebar"><span>examples/33-elasticsearch.yaml</span><button data-copy="#elasticsearchSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="elasticsearchSrc"><code data-lang="yaml"># Elasticsearch load test, driven by the `loadr-plugin-elasticsearch` native
 # protocol plugin.
 #
 # Elasticsearch support is NOT built into loadr core — it is a runtime-loadable
@@ -149,11 +147,7 @@ scenarios:
 thresholds:
   checks: [ "rate&gt;0.99" ]
   elasticsearch_req_duration: [ "p(95)&lt;400ms" ]
-  elasticsearch_reqs: [ "count&gt;0" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/33-elasticsearch.yaml">examples/33-elasticsearch.yaml</a>
-      </p>
+  elasticsearch_reqs: [ "count&gt;0" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/33-elasticsearch.yaml">examples/33-elasticsearch.yaml</a></p>
       
     </div>
     <div>

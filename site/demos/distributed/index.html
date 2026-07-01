@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#distributedRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="distributedRun"><code data-lang="bash">$ loadr run examples/15-distributed.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/15-distributed.yaml</span><button data-copy="#distributedSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="distributedSrc"><code data-lang="yaml"># Distributed run: submit this to a controller and the load is partitioned
+      <div class="codebox mt-4"><div class="codebar"><span>examples/15-distributed.yaml</span><button data-copy="#distributedSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="distributedSrc"><code data-lang="yaml"># Distributed run: submit this to a controller and the load is partitioned
 # across every connected agent (VUs split, arrival rates divided, percentiles
 # merged centrally from HDR histograms — never averaged).
 #
@@ -84,11 +82,7 @@ scenarios:
 
 thresholds:
   http_req_duration: [ "p(95)&lt;400", "p(99)&lt;900" ]
-  http_req_failed: [ "rate&lt;0.01" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/15-distributed.yaml">examples/15-distributed.yaml</a>
-      </p>
+  http_req_failed: [ "rate&lt;0.01" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/15-distributed.yaml">examples/15-distributed.yaml</a></p>
       
     </div>
     <div>

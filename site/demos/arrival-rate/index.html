@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#arrival-rateRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="arrival-rateRun"><code data-lang="bash">$ loadr run examples/03-arrival-rate.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/03-arrival-rate.yaml</span><button data-copy="#arrival-rateSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="arrival-rateSrc"><code data-lang="yaml"># Open-model load: start exactly 100 iterations per second regardless of how
+      <div class="codebox mt-4"><div class="codebar"><span>examples/03-arrival-rate.yaml</span><button data-copy="#arrival-rateSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="arrival-rateSrc"><code data-lang="yaml"># Open-model load: start exactly 100 iterations per second regardless of how
 # slowly the target responds. Watch `dropped_iterations` to spot saturation.
 name: arrival-rate
 description: constant 100 req/s open-model load
@@ -73,11 +71,7 @@ scenarios:
 
 thresholds:
   http_req_duration: [ "p(99)&lt;300" ]
-  dropped_iterations: [ "count&lt;10" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/03-arrival-rate.yaml">examples/03-arrival-rate.yaml</a>
-      </p>
+  dropped_iterations: [ "count&lt;10" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/03-arrival-rate.yaml">examples/03-arrival-rate.yaml</a></p>
       
     </div>
     <div>

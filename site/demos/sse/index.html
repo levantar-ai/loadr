@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#sseRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="sseRun"><code data-lang="bash">$ loadr run examples/18-sse.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/18-sse.yaml</span><button data-copy="#sseSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="sseSrc"><code data-lang="yaml"># Server-Sent Events load: open an event stream, read until a condition, assert on the last event.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/18-sse.yaml</span><button data-copy="#sseSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="sseSrc"><code data-lang="yaml"># Server-Sent Events load: open an event stream, read until a condition, assert on the last event.
 name: server-sent-events
 description: SSE stream connect/read with checks and assertions
 
@@ -90,11 +88,7 @@ scenarios:
 
 thresholds:
   http_req_failed: [ "rate&lt;0.01" ]
-  data_received: [ "count&gt;0" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/18-sse.yaml">examples/18-sse.yaml</a>
-      </p>
+  data_received: [ "count&gt;0" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/18-sse.yaml">examples/18-sse.yaml</a></p>
       
     </div>
     <div>

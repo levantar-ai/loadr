@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#native-protocol-cRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="native-protocol-cRun"><code data-lang="bash">$ loadr run examples/34-c-echo.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/34-c-echo.yaml</span><button data-copy="#native-protocol-cSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="native-protocol-cSrc"><code data-lang="yaml"># A protocol plugin written in plain C, loaded over loadr's frozen C ABI.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/34-c-echo.yaml</span><button data-copy="#native-protocol-cSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="native-protocol-cSrc"><code data-lang="yaml"># A protocol plugin written in plain C, loaded over loadr's frozen C ABI.
 #
 # Unlike the Rust native plugins (mongo/redis/...), `c-echo` is a C shared
 # library exporting four `extern "C"` symbols — proving loadr plugins can be
@@ -85,11 +83,7 @@ scenarios:
           body: "ping-from-loadr-${vu}-${iteration}"
           assert:
             - { type: status, equals: 200 }                 # 200 = ok
-            - { type: body_contains, value: "ping-from-loadr" }</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/34-c-echo.yaml">examples/34-c-echo.yaml</a>
-      </p>
+            - { type: body_contains, value: "ping-from-loadr" }</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/34-c-echo.yaml">examples/34-c-echo.yaml</a></p>
       
     </div>
     <div>
@@ -117,7 +111,7 @@ scenarios:
   <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-5 text-sm">
     <a class="text-smoke hover:text-flare" href="/demos/write-plugin-go/">← Write a plugin in Go</a>
     <a class="font-semibold text-flare hover:underline" href="/demos/">All demos</a>
-    <span></span>
+    <a class="text-smoke hover:text-flare" href="/demos/convert/">Import from k6 &amp; JMeter →</a>
   </div>
 </section>
 

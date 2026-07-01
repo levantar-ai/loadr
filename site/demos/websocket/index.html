@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#websocketRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="websocketRun"><code data-lang="bash">$ loadr run examples/09-websocket.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/09-websocket.yaml</span><button data-copy="#websocketSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="websocketSrc"><code data-lang="yaml"># WebSocket load: connect, exchange messages, assert on the conversation.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/09-websocket.yaml</span><button data-copy="#websocketSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="websocketSrc"><code data-lang="yaml"># WebSocket load: connect, exchange messages, assert on the conversation.
 name: websocket
 description: WS connect/send/receive with session limits
 
@@ -76,11 +74,7 @@ scenarios:
 
 thresholds:
   ws_session_duration: [ "p(95)&lt;11000" ]
-  ws_msgs_received: [ "count&gt;100" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/09-websocket.yaml">examples/09-websocket.yaml</a>
-      </p>
+  ws_msgs_received: [ "count&gt;100" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/09-websocket.yaml">examples/09-websocket.yaml</a></p>
       
     </div>
     <div>

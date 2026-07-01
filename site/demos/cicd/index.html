@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#cicdRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="cicdRun"><code data-lang="bash">$ loadr run examples/cicd/perf-smoke.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/cicd/perf-smoke.yaml</span><button data-copy="#cicdSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="cicdSrc"><code data-lang="yaml"># CI performance gate — the test the GitHub Action runs on every PR.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/cicd/perf-smoke.yaml</span><button data-copy="#cicdSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="cicdSrc"><code data-lang="yaml"># CI performance gate — the test the GitHub Action runs on every PR.
 # Thresholds are the gate: if p95/p99 latency, error rate, or check rate regress
 # past these limits, loadr exits non-zero and the CI job goes red.
 name: perf-smoke
@@ -72,11 +70,7 @@ scenarios:
 thresholds:
   http_req_failed: [ "rate&lt;0.01" ]
   http_req_duration: [ "p(95)&lt;300", "p(99)&lt;800" ]
-  checks: [ "rate&gt;0.99" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/cicd/perf-smoke.yaml">examples/cicd/perf-smoke.yaml</a>
-      </p>
+  checks: [ "rate&gt;0.99" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/cicd/perf-smoke.yaml">examples/cicd/perf-smoke.yaml</a></p>
       <p class="mt-4 text-sm text-smoke">Related files: <a class="text-flare hover:underline" href="/examples/cicd/github-actions.yml">cicd/github-actions.yml</a> · <a class="text-flare hover:underline" href="/examples/cicd/README.md">cicd/README.md</a></p>
     </div>
     <div>
@@ -91,6 +85,11 @@ thresholds:
       </div>
       
       
+      <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
+        <video controls preload="none" aria-label="Demo: CI/CD performance gate" poster="/videos/04-ci-gate-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/04-ci-gate.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="mt-6 flex flex-wrap gap-4">
         <a href="/download/" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Download &amp; run →</a>
         <a href="/docs/guides/ci.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>

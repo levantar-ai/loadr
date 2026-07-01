@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#soapRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="soapRun"><code data-lang="bash">$ loadr run examples/42-soap.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/42-soap.yaml</span><button data-copy="#soapSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="soapSrc"><code data-lang="yaml"># SOAP / XML web services — Artillery's `soap-with-custom-function`, natively.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/42-soap.yaml</span><button data-copy="#soapSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="soapSrc"><code data-lang="yaml"># SOAP / XML web services — Artillery's `soap-with-custom-function`, natively.
 #
 # loadr sends the raw SOAP envelope as a string body and pulls values back out of
 # the XML response with XPath extractors and checks (no custom function needed).
@@ -92,11 +90,7 @@ scenarios:
 
 thresholds:
   checks: [ "rate&gt;0.99" ]
-  http_req_duration: [ "p(95)&lt;800" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/42-soap.yaml">examples/42-soap.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;800" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/42-soap.yaml">examples/42-soap.yaml</a></p>
       
     </div>
     <div>

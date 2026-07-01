@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#soakRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="soakRun"><code data-lang="bash">$ loadr run examples/14-outputs-and-soak.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/14-outputs-and-soak.yaml</span><button data-copy="#soakSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="soakSrc"><code data-lang="yaml"># Long soak test wired into observability: Prometheus scrape endpoint,
+      <div class="codebox mt-4"><div class="codebar"><span>examples/14-outputs-and-soak.yaml</span><button data-copy="#soakSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="soakSrc"><code data-lang="yaml"># Long soak test wired into observability: Prometheus scrape endpoint,
 # JSONL archive, and StatsD — plus an abort threshold as a circuit breaker.
 name: soak
 description: 1h soak with metric exports
@@ -79,11 +77,7 @@ outputs:
 thresholds:
   http_req_failed:
     - { threshold: "rate&lt;0.02", abort_on_fail: true, delay_abort_eval: 2m }
-  http_req_duration: [ "p(95)&lt;600", "p(99.9)&lt;3000" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/14-outputs-and-soak.yaml">examples/14-outputs-and-soak.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;600", "p(99.9)&lt;3000" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/14-outputs-and-soak.yaml">examples/14-outputs-and-soak.yaml</a></p>
       
     </div>
     <div>

@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#functional-testRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="functional-testRun"><code data-lang="bash">$ loadr run examples/41-functional-test.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/41-functional-test.yaml</span><button data-copy="#functional-testSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="functional-testSrc"><code data-lang="yaml"># Functional / smoke testing — Artillery's `functional-testing-with-expect` +
+      <div class="codebox mt-4"><div class="codebar"><span>examples/41-functional-test.yaml</span><button data-copy="#functional-testSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="functional-testSrc"><code data-lang="yaml"># Functional / smoke testing — Artillery's `functional-testing-with-expect` +
 # `table-driven-functional-tests`.
 #
 # loadr doubles as a functional tester: make one pass over a table of cases
@@ -94,11 +92,7 @@ scenarios:
 
 thresholds:
   # Functional mode: every check must pass or the run fails (non-zero exit).
-  checks: [ "rate&gt;=1.0" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/41-functional-test.yaml">examples/41-functional-test.yaml</a>
-      </p>
+  checks: [ "rate&gt;=1.0" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/41-functional-test.yaml">examples/41-functional-test.yaml</a></p>
       
     </div>
     <div>
@@ -113,6 +107,11 @@ thresholds:
       </div>
       
       
+      <div class="mt-6 overflow-hidden rounded-xl border border-edge bg-ink">
+        <video controls preload="none" aria-label="Demo: Functional / smoke test" poster="/videos/02-validation-poster.jpg" class="aspect-video w-full bg-ink">
+          <source src="/videos/02-validation.mp4" type="video/mp4">
+        </video>
+      </div>
       <div class="mt-6 flex flex-wrap gap-4">
         <a href="/download/" class="glow rounded-xl bg-blood px-6 py-3 font-bold text-white">Download &amp; run →</a>
         <a href="/docs/yaml/checks.html" class="rounded-xl border border-edge-bright bg-coal px-6 py-3 font-semibold text-ash hover:border-ember/60 hover:text-white">Read the docs →</a>

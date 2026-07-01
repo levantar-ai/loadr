@@ -45,9 +45,7 @@
         <div class="codebar"><span>Run it</span><button data-copy="#twirpRun" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
         <pre id="twirpRun"><code data-lang="bash">$ loadr run examples/43-twirp.yaml</code></pre>
       </div>
-      <div class="codebox mt-4">
-        <div class="codebar"><span>examples/43-twirp.yaml</span><button data-copy="#twirpSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div>
-        <pre id="twirpSrc"><code data-lang="yaml"># Twirp RPC — Artillery's `rpc-twirp-with-custom-function`, natively.
+      <div class="codebox mt-4"><div class="codebar"><span>examples/43-twirp.yaml</span><button data-copy="#twirpSrc" class="rounded border border-edge px-2 py-0.5 text-[10px] text-smoke hover:text-flare">copy</button></div><pre id="twirpSrc"><code data-lang="yaml"># Twirp RPC — Artillery's `rpc-twirp-with-custom-function`, natively.
 #
 # Twirp speaks plain HTTP: POST to /twirp/&lt;pkg.Service&gt;/&lt;Method&gt; with a JSON (or
 # protobuf) body. loadr's JSON body sets `Content-Type: application/json`, which
@@ -88,11 +86,7 @@ scenarios:
 
 thresholds:
   checks: [ "rate&gt;0.99" ]
-  http_req_duration: [ "p(95)&lt;400" ]</code></pre>
-      </div>
-      <p class="mt-4 text-sm text-smoke">
-        View raw: <a class="font-semibold text-flare hover:underline" href="/examples/43-twirp.yaml">examples/43-twirp.yaml</a>
-      </p>
+  http_req_duration: [ "p(95)&lt;400" ]</code></pre></div><p class="mt-4 text-sm text-smoke">View raw: <a class="font-semibold text-flare hover:underline" href="/examples/43-twirp.yaml">examples/43-twirp.yaml</a></p>
       
     </div>
     <div>

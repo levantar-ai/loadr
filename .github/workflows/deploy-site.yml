@@ -1,0 +1,59 @@
+name: Deploy Site
+
+# Deploys loadr.io (marketing site + docs) on every merge to main that touches
+# them — the same site/deploy.sh a workstation runs, but authenticated via
+# GitHub OIDC (aws-actions/configure-aws-credentials) against a deploy role
+# scoped to the site bucket + CloudFront distribution. No stored credentials.
+#
+# Videos are recorded and uploaded from a workstation (site/videos/out is
+# git-ignored); deploy.sh preserves the bucket's videos/ when none are local.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/**'
+      - 'examples/**'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: build + deploy loadr.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write # OIDC token for AWS
+    steps:
+      - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with: { egress-policy: audit }
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4
+        with: { node-version: 22 }
+
+      - name: Install mdbook
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL https://github.com/rust-lang/mdBook/releases/download/v0.4.52/mdbook-v0.4.52-x86_64-unknown-linux-gnu.tar.gz \
+            | tar xz -C "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502 # v4
+        with:
+          role-to-assume: ${{ secrets.AWS_SITE_DEPLOY_ROLE_ARN }}
+          aws-region: eu-west-2
+
+      - name: Build + deploy
+        run: ./site/deploy.sh

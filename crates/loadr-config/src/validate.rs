@@ -33,6 +33,7 @@ pub const BUILTIN_METRICS: &[&str] = &[
     "vus",
     "vus_max",
     "checks",
+    "faults_injected",
     "data_sent",
     "data_received",
     "ws_connecting",
@@ -169,6 +170,9 @@ pub fn validate(plan: &TestPlan, source: Option<&str>, opts: &ValidateOptions) -
         }
         if let Some(tt) = &scenario.think_time {
             ctx.check_think_time(format!("{base}.think_time"), tt);
+        }
+        if let Some(faults) = &scenario.faults {
+            ctx.check_faults(format!("{base}.faults"), faults);
         }
         let mut declared: BTreeSet<String> = plan.variables.keys().cloned().collect();
         ctx.check_steps(&base, "flow", &scenario.flow, &mut declared);
@@ -389,6 +393,25 @@ impl Ctx<'_> {
         if let ThinkTimeSpec::Uniform { min, max } = tt {
             if min > max {
                 self.error(path, "`min` must not exceed `max`");
+            }
+        }
+    }
+
+    fn check_faults(&mut self, path: String, faults: &FaultSpec) {
+        if let Some(rate) = faults.drop_rate {
+            if !rate.is_finite() || !(0.0..1.0).contains(&rate) {
+                self.error(
+                    format!("{path}.drop_rate"),
+                    "`drop_rate` must be a probability in [0, 1)",
+                );
+            }
+        }
+        if let Some(latency) = &faults.latency {
+            if latency.jitter.is_zero() {
+                self.error(
+                    format!("{path}.latency.jitter"),
+                    "`jitter` must be greater than zero",
+                );
             }
         }
     }
@@ -980,6 +1003,95 @@ scenarios:
             .find(|d| d.message.contains("requires `vus`"))
             .expect("vus error");
         assert!(d.line.is_some(), "should carry a source line");
+    }
+
+    #[test]
+    fn faults_validation_errors() {
+        let yaml = r#"
+scenarios:
+  s:
+    executor: constant-vus
+    vus: 1
+    duration: 1s
+    faults:
+      latency: { jitter: 0s }
+      drop_rate: 1.0
+    flow:
+      - request: { url: https://example.com/ }
+"#;
+        let diags = errors(yaml);
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.path == "scenarios.s.faults.drop_rate"),
+            "{diags:?}"
+        );
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.path == "scenarios.s.faults.latency.jitter"),
+            "{diags:?}"
+        );
+    }
+
+    #[test]
+    fn faults_valid_range_accepted() {
+        let yaml = r#"
+scenarios:
+  s:
+    executor: constant-vus
+    vus: 1
+    duration: 1s
+    faults:
+      latency: { jitter: 50ms, distribution: gaussian }
+      drop_rate: 0.0
+      drop_mode: after_response
+    flow:
+      - request: { url: https://example.com/ }
+"#;
+        assert!(errors(yaml).is_empty(), "{:?}", errors(yaml));
+    }
+
+    #[test]
+    fn negative_drop_rate_rejected() {
+        let yaml = r#"
+scenarios:
+  s:
+    executor: constant-vus
+    vus: 1
+    duration: 1s
+    faults: { drop_rate: -0.1 }
+    flow:
+      - request: { url: https://example.com/ }
+"#;
+        let diags = errors(yaml);
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.message.contains("[0, 1)") && d.path.ends_with("drop_rate")),
+            "{diags:?}"
+        );
+    }
+
+    #[test]
+    fn faults_injected_is_a_known_threshold_metric() {
+        let yaml = r#"
+scenarios:
+  s:
+    executor: constant-vus
+    vus: 1
+    duration: 1s
+    faults: { drop_rate: 0.5 }
+    flow:
+      - request: { url: https://example.com/ }
+thresholds:
+  faults_injected: "count<100"
+"#;
+        let diags = validate(&plan_of(yaml), Some(yaml), &ValidateOptions::default());
+        assert!(
+            diags.iter().all(|d| !d.path.starts_with("thresholds")),
+            "{diags:?}"
+        );
     }
 
     #[test]

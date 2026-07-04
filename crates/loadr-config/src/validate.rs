@@ -237,11 +237,39 @@ pub fn validate(plan: &TestPlan, source: Option<&str>, opts: &ValidateOptions) -
             ]
         })
         .collect();
+    // Observe sources feed the run's metric space too: named external series
+    // (`as:`) and the system sampler's `<prefix>_{cpu,memory,disk_io,network}`
+    // family are valid threshold targets.
+    let observe_metrics: BTreeSet<String> = plan
+        .observe
+        .iter()
+        .flat_map(|o| match o {
+            crate::ObserveConfig::Prometheus {
+                name,
+                as_name,
+                query,
+                ..
+            } => {
+                vec![as_name
+                    .clone()
+                    .or_else(|| name.clone())
+                    .unwrap_or_else(|| query.clone())]
+            }
+            crate::ObserveConfig::System { as_prefix, .. } => {
+                let prefix = as_prefix.clone().unwrap_or_else(|| "system".to_string());
+                ["cpu", "memory", "disk_io", "network"]
+                    .iter()
+                    .map(|m| format!("{prefix}_{m}"))
+                    .collect()
+            }
+        })
+        .collect();
     let known_metrics: BTreeSet<&str> = BUILTIN_METRICS
         .iter()
         .copied()
         .chain(plan.metrics.keys().map(|s| s.as_str()))
         .chain(plugin_metrics.iter().map(|s| s.as_str()))
+        .chain(observe_metrics.iter().map(|s| s.as_str()))
         .collect();
     for (selector_str, list) in &plan.thresholds {
         let path = format!("thresholds.{selector_str}");

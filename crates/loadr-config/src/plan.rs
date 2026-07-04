@@ -2026,6 +2026,20 @@ pub enum ObserveConfig {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         token: Option<String>,
     },
+    /// Sample the local host's CPU / memory / disk / network from `/proc`,
+    /// live on the load timeline. Linux-only; other platforms log a warning
+    /// and produce no series.
+    System {
+        /// Metrics to sample: `cpu | memory | disk | network` (default: all).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        metrics: Vec<String>,
+        /// Sampling interval (default `1s`).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        interval: Option<Dur>,
+        /// Series name prefix (default `system`, giving `system_cpu`, …).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        as_prefix: Option<String>,
+    },
 }
 
 /// OTLP transport.

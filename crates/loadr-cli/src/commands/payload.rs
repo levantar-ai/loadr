@@ -61,7 +61,7 @@ pub fn execute(args: PayloadArgs) -> anyhow::Result<i32> {
 
 fn print_catalog() {
     println!(
-        "{}  —  scale the magnitude and watch response time; see `loadr sweep --assert-complexity`\n",
+        "{}  —  scale the magnitude and watch response time; see `loadr sweep --complexity`\n",
         "loadr payload".bold()
     );
     let mut last = "";

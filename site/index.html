@@ -280,6 +280,10 @@
         <h3 class="font-bold text-white">Parameter sweeps</h3>
         <p class="mt-2 text-sm text-smoke"><code>loadr sweep plan.yaml --var vus=10,50,100</code> runs one plan across a matrix — repeat <code>--var</code> and the axes multiply — then tabulates p50/p95/p99, error rate and RPS per combination, on the terminal or as markdown.</p>
       </a>
+      <a href="/docs/guides/payload.html" class="fcard rounded-xl border border-edge bg-panel p-6">
+        <h3 class="font-bold text-white">Payloads &amp; complexity testing</h3>
+        <p class="mt-2 text-sm text-smoke"><code>loadr payload</code> generates adversarial input — nested JSON/markdown, billion-laughs, ReDoS, hash-collision and more. Scale it with <code>sweep --complexity</code> and loadr fits the exponent: <code>O(n^1.6) ⚠</code> exits 99 when a parser scales super-linearly. A DoS finder in one command.</p>
+      </a>
       <a href="/docs/yaml/assertions-checks.html" class="fcard rounded-xl border border-edge bg-panel p-6">
         <h3 class="font-bold text-white">Checks + JMeter assertions</h3>
         <p class="mt-2 text-sm text-smoke">k6-style checks that never fail requests, and JMeter-style assertions that do: status, body contains/regex, JSONPath, XPath, duration, size, headers, JS expressions — with abort actions.</p>

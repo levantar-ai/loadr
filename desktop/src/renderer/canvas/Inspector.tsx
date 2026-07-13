@@ -1,18 +1,18 @@
-// The canvas detail pane. Selecting a node on the canvas shows its editable
-// properties here — quick fields for the common kinds, plus a universal
-// YAML editor of the node's own subtree so ANY node (known or future) can be
-// edited. Every change flows back through the shared PlanDoc, so the YAML text,
+// The canvas detail pane. Selecting a node shows its full GUI form — the same
+// per-kind editors the Form view uses (reused, not reimplemented) — plus a
+// collapsible raw-YAML editor of the node's subtree as a universal escape
+// hatch. Every change flows through the shared PlanDoc, so the YAML text,
 // validation and the graph stay in lock-step.
 
 import { useEffect, useMemo, useState } from 'react';
 import yaml from 'js-yaml';
 
 import { deleteIn, getIn, moveStepAt, setIn, type Path } from '../../shared/edit';
-import type { Json, Scenario } from '../../shared/types';
+import type { Json, Scenario, Step, StepKind } from '../../shared/types';
 import type { PlanDoc } from '../state/usePlanDoc';
-import { Button, Field, IconButton, NumberInput, Select, TextInput } from '../ui/controls';
+import { PlanMetaForm, ScenarioParamFields, StepFields } from '../forms/PlanForms';
+import { Button, Disclosure, IconButton } from '../ui/controls';
 import { ArrowDown, ArrowUp, Copy, Trash, X } from '../ui/icons';
-import { EXECUTORS } from '../forms/PlanForms';
 import type { NodeData } from './graph';
 
 export function Inspector({
@@ -33,9 +33,9 @@ export function Inspector({
       </div>
     );
   }
+
   const value = getIn(doc.plan, node.path);
-  const listPath = node.listPath;
-  const index = node.index;
+  const { listPath, index } = node;
 
   const remove = () => {
     doc.apply((p) => deleteIn(p, node.path));
@@ -56,10 +56,12 @@ export function Inspector({
   };
 
   return (
-    <div className="flex h-full flex-col bg-coal">
+    <div className="flex h-full flex-col bg-coal" data-testid="inspector">
       <div className="flex items-center justify-between border-b border-edge px-3 py-2">
         <div className="min-w-0">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-mist">{node.kind}</div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-mist" data-testid="inspector-kind">
+            {node.kind}
+          </div>
           <div className="truncate text-sm font-semibold text-white">{node.label}</div>
         </div>
         <IconButton icon={X} label="close inspector" onClick={onClose} />
@@ -75,69 +77,47 @@ export function Inspector({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-3">
-        <QuickFields node={node} doc={doc} />
-        <RawEditor path={node.path} value={value} doc={doc} />
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <NodeForm node={node} doc={doc} />
+        <div className="mt-4 border-t border-edge pt-3">
+          <Disclosure label="Raw (YAML)">
+            <RawEditor path={node.path} value={value} doc={doc} />
+          </Disclosure>
+        </div>
       </div>
     </div>
   );
 }
 
-// Kind-specific shortcuts for the fields people touch most; the raw editor
-// below covers everything else.
-function QuickFields({ node, doc }: { node: NodeData; doc: PlanDoc }) {
-  const p = node.path;
+// Dispatch to the real, tested per-kind forms.
+function NodeForm({ node, doc }: { node: NodeData; doc: PlanDoc }) {
+  if (node.kind === 'plan') return <PlanMetaForm doc={doc} />;
+
   if (node.kind === 'scenario') {
-    const sc = getIn(doc.plan, p) as Scenario | undefined;
+    const name = String(node.path[node.path.length - 1]);
+    const sc = getIn(doc.plan, node.path) as Scenario | undefined;
+    if (!sc) return null;
+    return <ScenarioParamFields doc={doc} name={name} sc={sc} />;
+  }
+
+  if (node.kind === 'sublist') {
     return (
-      <div className="mb-4 space-y-3">
-        <Field label="Executor">
-          <Select
-            aria-label="Executor"
-            value={sc?.executor ?? 'constant-vus'}
-            onChange={(e) => doc.update([...p, 'executor'], e.target.value)}
-          >
-            {EXECUTORS.map((x) => <option key={x} value={x}>{x}</option>)}
-          </Select>
-        </Field>
-        {sc && 'vus' in sc && (
-          <Field label="VUs">
-            <NumberInput value={sc.vus ?? 0} onChange={(e) => doc.update([...p, 'vus'], Number(e.target.value))} />
-          </Field>
-        )}
-        {sc && 'duration' in sc && (
-          <Field label="Duration">
-            <TextInput value={sc.duration ?? ''} placeholder="30s" onChange={(e) => doc.update([...p, 'duration'], e.target.value)} />
-          </Field>
-        )}
-      </div>
+      <p className="text-xs leading-relaxed text-mist">
+        A branch container. Add or arrange its steps on the canvas, or edit them
+        as YAML below.
+      </p>
     );
   }
-  if (node.kind === 'request') {
-    const body = (getIn(doc.plan, [...p, 'request']) as Record<string, Json>) ?? {};
-    const set = (k: string, v: Json) => doc.update([...p, 'request', k], v);
-    return (
-      <div className="mb-4 space-y-3">
-        <div className="grid grid-cols-[110px_1fr] gap-2">
-          <Field label="Method">
-            <Select value={(body.method as string) ?? 'GET'} onChange={(e) => set('method', e.target.value)}>
-              {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'].map((m) => <option key={m}>{m}</option>)}
-            </Select>
-          </Field>
-          <Field label="URL">
-            <TextInput aria-label="URL" value={(body.url as string) ?? ''} placeholder="/path" onChange={(e) => set('url', e.target.value)} />
-          </Field>
-        </div>
-        <Field label="Name" hint="labels the request in metrics">
-          <TextInput value={(body.name as string) ?? ''} onChange={(e) => set('name', (e.target.value || undefined) as Json)} />
-        </Field>
-      </div>
-    );
-  }
-  return null;
+
+  // Any step kind → its full form editor. StepFields writes to [...base, key]
+  // and reads step[kind], so base must include the kind segment (same
+  // convention StepCard uses in the Form view).
+  const step = getIn(doc.plan, node.path) as Step | undefined;
+  if (!step) return null;
+  return <StepFields doc={doc} base={[...node.path, node.kind]} step={step} kind={node.kind as StepKind} />;
 }
 
-// The universal escape hatch: edit the node's subtree as YAML. Applies on a
+// Universal escape hatch: edit the node's subtree as YAML. Applies on a
 // successful parse; a bad edit shows the error and leaves the model untouched.
 function RawEditor({ path, value, doc }: { path: Path; value: unknown; doc: PlanDoc }) {
   const initial = useMemo(() => (value === undefined ? '' : yaml.dump(value).trimEnd()), [value]);
@@ -145,8 +125,6 @@ function RawEditor({ path, value, doc }: { path: Path; value: unknown; doc: Plan
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 
-  // Re-sync from the model when the selection changes or an external edit lands
-  // (but don't stomp the user mid-edit).
   useEffect(() => {
     if (!dirty) setText(initial);
   }, [initial, dirty]);
@@ -164,16 +142,18 @@ function RawEditor({ path, value, doc }: { path: Path; value: unknown; doc: Plan
 
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-mist">Raw (YAML)</span>
-        {dirty && <Button onClick={commit}>Apply</Button>}
-      </div>
+      {dirty && (
+        <div className="mb-1.5 flex justify-end">
+          <Button onClick={commit}>Apply</Button>
+        </div>
+      )}
       <textarea
+        aria-label="raw yaml"
         value={text}
         onChange={(e) => { setText(e.target.value); setDirty(true); }}
         onBlur={commit}
         spellCheck={false}
-        rows={12}
+        rows={10}
         className="w-full resize-y rounded-lg border border-edge bg-ink px-2.5 py-2 font-mono text-xs text-ash outline-none focus:border-ember/50"
       />
       {error && <p className="mt-1 text-xs text-flare">{error}</p>}

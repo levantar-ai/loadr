@@ -32,7 +32,7 @@ import {
   ArrowDown, ArrowUp, ChevronDown, ChevronRight, Grip, Plus, STEP_ICON, Trash, type Icon,
 } from '../ui/icons';
 
-const EXECUTORS: ExecutorKind[] = [
+export const EXECUTORS: ExecutorKind[] = [
   'constant-vus', 'ramping-vus', 'constant-arrival-rate', 'ramping-arrival-rate',
   'per-vu-iterations', 'shared-iterations', 'externally-controlled',
 ];

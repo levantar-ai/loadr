@@ -6,10 +6,11 @@
 // inspector. Every structural or field edit goes through the shared PlanDoc,
 // so the YAML, validation and this graph never drift.
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   MarkerType,
   MiniMap,
@@ -49,6 +50,7 @@ function CanvasInner({ doc }: { doc: PlanDoc }) {
   const { selectedId, select } = useSelection();
   const positions = useRef<Record<string, XYPosition>>({});
   const rf = useReactFlow();
+  const [showMiniMap, setShowMiniMap] = useState(false); // off by default; toggled from the controls
 
   const graph = useMemo(() => planToGraph(doc.plan, positions.current), [doc.plan]);
 
@@ -129,7 +131,7 @@ function CanvasInner({ doc }: { doc: PlanDoc }) {
 
   return (
     <div className="flex h-full min-h-0">
-      <aside className="w-44 shrink-0 border-r border-edge">
+      <aside className="w-56 shrink-0 border-r border-edge">
         <Palette />
       </aside>
 
@@ -153,8 +155,21 @@ function CanvasInner({ doc }: { doc: PlanDoc }) {
           className="bg-ink"
         >
           <Background variant={BackgroundVariant.Dots} gap={22} size={1} color={NEST} />
-          <Controls className="!border-edge !bg-coal [&_button]:!border-edge [&_button]:!bg-panel [&_button]:!fill-ash [&_button:hover]:!bg-edge" />
-          <MiniMap pannable zoomable className="!bg-coal" maskColor="rgba(0,0,0,0.6)" nodeColor="#2a2a35" />
+          <Controls className="!border-edge !bg-coal [&_button]:!border-edge [&_button]:!bg-panel [&_button]:!fill-ash [&_button:hover]:!bg-edge">
+            <ControlButton
+              onClick={() => setShowMiniMap((s) => !s)}
+              title={showMiniMap ? 'Hide minimap' : 'Show minimap'}
+              aria-label={showMiniMap ? 'Hide minimap' : 'Show minimap'}
+              className={showMiniMap ? '!fill-flare' : ''}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><rect x="13" y="13" width="6" height="6" rx="1" fill="currentColor" stroke="none" />
+              </svg>
+            </ControlButton>
+          </Controls>
+          {showMiniMap && (
+            <MiniMap pannable zoomable className="!bg-coal" maskColor="rgba(0,0,0,0.6)" nodeColor="#2a2a35" />
+          )}
         </ReactFlow>
       </div>
 

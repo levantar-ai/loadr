@@ -147,4 +147,50 @@
       });
     }, 900);
   }
+
+  // -------------------------------------------------------------------------
+  // Desktop screenshot slideshow (crossfade + dots + arrows, auto-advancing,
+  // paused on hover/focus; honours prefers-reduced-motion).
+  // -------------------------------------------------------------------------
+  document.querySelectorAll("[data-desk-show]").forEach(function (root) {
+    var slides = root.querySelectorAll("[data-desk-slide]");
+    if (slides.length < 2) return;
+    var caption = root.querySelector("[data-desk-caption]");
+    var dotsWrap = root.querySelector("[data-desk-dots]");
+    var i = 0, timer = null, dots = [];
+
+    slides.forEach(function (_, idx) {
+      var d = document.createElement("button");
+      d.type = "button";
+      d.setAttribute("aria-label", "Show screenshot " + (idx + 1));
+      d.addEventListener("click", function () { go(idx); restart(); });
+      dotsWrap.appendChild(d);
+      dots.push(d);
+    });
+
+    function go(n) {
+      i = (n + slides.length) % slides.length;
+      slides.forEach(function (s, idx) {
+        s.style.opacity = idx === i ? "1" : "0";
+        s.style.zIndex = idx === i ? "1" : "0";
+      });
+      dots.forEach(function (d, idx) {
+        d.className = "h-2 rounded-full transition-all " + (idx === i ? "w-5 bg-flare" : "w-2 bg-edge-bright hover:bg-smoke");
+      });
+      if (caption) caption.textContent = slides[i].getAttribute("data-caption") || "";
+    }
+    function start() { if (!reduceMotion && !timer) timer = setInterval(function () { go(i + 1); }, 4200); }
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function restart() { stop(); start(); }
+
+    root.querySelector("[data-desk-prev]").addEventListener("click", function () { go(i - 1); restart(); });
+    root.querySelector("[data-desk-next]").addEventListener("click", function () { go(i + 1); restart(); });
+    root.addEventListener("mouseenter", stop);
+    root.addEventListener("mouseleave", start);
+    root.addEventListener("focusin", stop);
+    root.addEventListener("focusout", start);
+
+    go(0);
+    start();
+  });
 })();

@@ -45,6 +45,8 @@ cp "$ROOT/site/assets/site.css" "$ROOT/site/assets/site.js" "$ROOT/site/assets/c
    "$ROOT/site/assets/logo-mark.png" "$ROOT/site/assets/desktop-app.png" "$DIST/assets/"
 mkdir -p "$DIST/assets/desktop"
 cp "$ROOT/site/assets/desktop/"*.png "$DIST/assets/desktop/"
+mkdir -p "$DIST/assets/mascot"
+cp "$ROOT/site/assets/mascot/"*.png "$DIST/assets/mascot/"
 cp -r "$ROOT/docs/book/." "$DIST/docs/"
 
 # Examples: browsable raw files + a download bundle + a generated index page.

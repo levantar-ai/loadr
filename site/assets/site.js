@@ -193,4 +193,36 @@
     go(0);
     start();
   });
+
+  // -------------------------------------------------------------------------
+  // Canvas build-up walkthroughs — manual step-through (prev/next + dots),
+  // no auto-advance. Each frame carries a data-cap caption.
+  // -------------------------------------------------------------------------
+  document.querySelectorAll("[data-walk]").forEach(function (root) {
+    var frames = [].slice.call(root.querySelectorAll("[data-fr]"));
+    if (frames.length < 2) return;
+    var cap = root.querySelector("[data-cap]");
+    var dotsWrap = root.querySelector("[data-dots]");
+    var i = 0;
+    var dots = frames.map(function (_, idx) {
+      var d = document.createElement("button");
+      d.type = "button";
+      d.setAttribute("aria-label", "Step " + (idx + 1));
+      d.className = "h-1.5 w-1.5 rounded-full bg-edge-bright";
+      d.addEventListener("click", function () { go(idx); });
+      dotsWrap.appendChild(d);
+      return d;
+    });
+    function go(n) {
+      i = (n + frames.length) % frames.length;
+      frames.forEach(function (f, idx) { f.style.opacity = idx === i ? "1" : "0"; });
+      dots.forEach(function (d, idx) {
+        d.className = "h-1.5 rounded-full transition-all " + (idx === i ? "w-4 bg-flare" : "w-1.5 bg-edge-bright");
+      });
+      if (cap) cap.textContent = frames[i].getAttribute("data-cap") || "";
+    }
+    root.querySelector("[data-pv]").addEventListener("click", function () { go(i - 1); });
+    root.querySelector("[data-nx]").addEventListener("click", function () { go(i + 1); });
+    go(0);
+  });
 })();

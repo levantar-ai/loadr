@@ -24,6 +24,7 @@ import {
 import { asArr as arr, asObj as obj, stepSummary } from '../../shared/step';
 import type { PlanDoc } from '../state/usePlanDoc';
 import { useSelection } from '../state/selection';
+import { PayloadPicker } from './PayloadPicker';
 import { dragEndIndices } from './dnd';
 import {
   Badge, Button, Checkbox, Disclosure, Field, IconButton, NumberInput, Select, Textarea, TextInput,
@@ -269,9 +270,20 @@ export function StepFields({
           </Field>
           <KeyValueEditor doc={doc} path={[...base, 'headers']} value={obj(body.headers)} label="Headers" keyPlaceholder="Authorization" valPlaceholder="Bearer …" />
           <KeyValueEditor doc={doc} path={[...base, 'params']} value={obj(body.params)} label="Query params" keyPlaceholder="page" valPlaceholder="1" />
-          <Field label="Body" hint="raw string or ${...} template">
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-smoke">
+                Body <span className="font-normal text-mist">— raw string, <code>${'{...}'}</code> template, or</span>
+              </span>
+              <PayloadPicker
+                onPick={(p) => {
+                  set('body', `\${payload:${p.name}:${p.default}}`);
+                  doc.update([...base, 'headers', 'Content-Type'], p.contentType);
+                }}
+              />
+            </div>
             <Textarea rows={3} value={typeof body.body === 'string' ? body.body : body.body == null ? '' : JSON.stringify(body.body, null, 2)} placeholder={'{ "email": "${user.email}" }'} onChange={(e) => set('body', e.target.value || undefined)} />
-          </Field>
+          </div>
           <Disclosure label={`Assertions, checks & extracts${advancedCount(body)}`}>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Timeout" hint="per-request override"><TextInput value={(body.timeout as string) ?? ''} placeholder="5s" onChange={(e) => set('timeout', e.target.value || undefined)} /></Field>

@@ -47,6 +47,22 @@ test.describe('canvas editor', () => {
     await app.close();
   });
 
+  test('the request body embeds the payload catalog; picking one writes the ${payload:…} template', async () => {
+    const { app, page } = await launchApp();
+    await page.waitForSelector('text=Desktop');
+    await canvasTab(page).click();
+
+    await node(page, 'request').first().click();
+    // Payloads are a first-class part of authoring a request — no separate lab.
+    await page.getByRole('button', { name: '+ Payload' }).click();
+    await page.getByRole('menuitem', { name: /nested-json/ }).first().click();
+
+    // The body becomes the matching template, verbatim to what the CLI expands.
+    await expect(page.getByPlaceholder('{ "email": "${user.email}" }'))
+      .toHaveValue(/^\$\{payload:nested-json:\d+\}$/);
+    await app.close();
+  });
+
   test('selecting a scenario shows its param form; editing VUs propagates', async () => {
     const { app, page } = await launchApp();
     await page.waitForSelector('text=Desktop');

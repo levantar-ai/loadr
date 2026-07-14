@@ -4,7 +4,7 @@ import {
   classifyExponent, type ComplexityPoint, type ComplexityResult, type PayloadInfo,
 } from '../shared/payload';
 import { Button, Field, IconButton, NumberInput, TextInput } from './ui/controls';
-import { Code, FolderOpen, Layers, Play, X } from './ui/icons';
+import { Code, Copy, FolderOpen, Layers, Play, X } from './ui/icons';
 
 // Payload Lab (M7): generate adversarial payloads from the catalog and run a
 // complexity probe (`loadr sweep --complexity`) that fits the response-time
@@ -39,6 +39,19 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
   const [probe, setProbe] = useState<ComplexityResult | null>(null);
   const [probeBusy, setProbeBusy] = useState(false);
   const [probeError, setProbeError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // The snippet you paste into a request body. loadr expands it to the full
+  // payload at runtime, and the probe sweeps its magnitude via LOADR_SWEEP_<AXIS>.
+  const axisName = (axis.trim() || selected?.param || 'depth').toUpperCase();
+  const snippet = selected ? `\${payload:${selected.name}:$LOADR_SWEEP_${axisName}}` : '';
+  function copySnippet() {
+    if (!snippet) return;
+    navigator.clipboard.writeText(snippet).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
 
   useEffect(() => {
     window.loadr.payloadCatalog().then((c) => {
@@ -62,6 +75,7 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
   function pick(p: PayloadInfo) {
     setSelected(p);
     setMagnitude(p.default);
+    setAxis(p.param); // connect the two halves: the probe sweeps this payload's magnitude
     setGen(null);
     setGenError(null);
   }
@@ -112,10 +126,27 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" role="dialog" aria-label="Payload Lab">
       <div className="flex max-h-[88vh] w-[68rem] flex-col rounded-2xl border border-edge bg-panel shadow-2xl shadow-black/60">
-        <div className="flex items-center justify-between border-b border-edge px-4 py-3">
-          <h2 className="flex items-center gap-2 font-bold text-white"><span className="text-flare"><Layers /></span>Payload Lab</h2>
+        <div className="flex items-start justify-between border-b border-edge px-4 py-3">
+          <div>
+            <h2 className="flex items-center gap-2 font-bold text-white"><span className="text-flare"><Layers /></span>Payload Lab</h2>
+            <p className="mt-0.5 text-xs text-mist">Find algorithmic-complexity DoS: scale a crafted input against a target and measure how its response time grows.</p>
+          </div>
           <IconButton icon={X} label="close payload lab" onClick={onClose} />
         </div>
+
+        {/* The mental model, up front — the two panels below are steps 1 and 3. */}
+        <ol className="flex flex-wrap items-stretch gap-2 border-b border-edge bg-coal/50 px-4 py-3 text-xs">
+          {[
+            ['1', 'Pick an adversarial payload', 'a nested / oversized / pathological input, below'],
+            ['2', 'Drop its snippet in a request body', 'paste the ${payload:…} into your plan'],
+            ['3', 'Probe how the target scales', 'a super-linear O(n^k) is a latent DoS'],
+          ].map(([n, title, sub]) => (
+            <li key={n} className="flex min-w-[13rem] flex-1 items-start gap-2 rounded-lg border border-edge bg-panel px-3 py-2">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blood/20 font-mono text-[11px] font-bold text-flare">{n}</span>
+              <span><span className="block font-medium text-ash">{title}</span><span className="block text-mist">{sub}</span></span>
+            </li>
+          ))}
+        </ol>
 
         <div className="grid flex-1 grid-cols-2 gap-4 overflow-y-auto p-4">
           {/* ---- Generator ---------------------------------------------- */}
@@ -158,7 +189,16 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
                   </div>
                 </div>
 
-                <Field label={`magnitude (${selected.param}, max ${selected.max.toLocaleString()})`}>
+                <div className="rounded-lg border border-ember/40 bg-ink p-2.5">
+                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-mist">Use it — paste into a request body</div>
+                  <div className="flex items-center gap-2">
+                    <code className="min-w-0 flex-1 truncate rounded bg-coal px-2 py-1.5 font-mono text-[11px] text-flare">{snippet}</code>
+                    <Button icon={Copy} onClick={copySnippet}>{copied ? 'Copied' : 'Copy'}</Button>
+                  </div>
+                  <p className="mt-1.5 text-[11px] leading-snug text-mist">loadr expands this to the full payload at run time; the probe on the right sweeps its size to fit the exponent.</p>
+                </div>
+
+                <Field label={`preview magnitude (${selected.param}, max ${selected.max.toLocaleString()})`}>
                   <div className="flex items-center gap-2">
                     <input
                       type="range"
@@ -181,8 +221,8 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
                   </div>
                 </Field>
 
-                <Button variant="primary" icon={Code} onClick={generate} disabled={genBusy}>
-                  {genBusy ? 'Generating…' : 'Generate'}
+                <Button icon={Code} onClick={generate} disabled={genBusy}>
+                  {genBusy ? 'Rendering…' : 'Preview the bytes'}
                 </Button>
 
                 {genError && (
@@ -207,15 +247,16 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
           {/* ---- Complexity probe --------------------------------------- */}
           <section className="flex min-w-0 flex-col gap-3">
             <h3 className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Complexity probe</h3>
+            <p className="-mt-1 text-[11px] leading-snug text-mist">Runs a plan that references the snippet at each size, then fits the response-time growth: <span className="text-ash">O(n^k)</span>. k above ~1.6 is a likely DoS.</p>
             <div className="space-y-3 rounded-xl border border-edge bg-coal p-3">
-              <Field label="target plan">
+              <Field label="target plan" hint="a plan whose request body contains the ${payload:…} snippet">
                 <div className="flex gap-2">
                   <TextInput value={planPath} placeholder="/path/to/plan.yaml" onChange={(e) => setPlanPath(e.target.value)} aria-label="plan path" />
                   <Button icon={FolderOpen} onClick={browsePlan}>Browse…</Button>
                 </div>
               </Field>
               <div className="grid grid-cols-2 gap-2">
-                <Field label="size axis"><TextInput value={axis} onChange={(e) => setAxis(e.target.value)} aria-label="axis" /></Field>
+                <Field label="size axis" hint="matches the snippet"><TextInput value={axis} onChange={(e) => setAxis(e.target.value)} aria-label="axis" /></Field>
                 <Field label="max exponent (optional)"><TextInput value={maxExpText} placeholder="e.g. 1.5" onChange={(e) => setMaxExpText(e.target.value)} aria-label="max exponent" /></Field>
               </div>
               <Field label="sizes (comma-separated)" hint="Exported to the plan as LOADR_SWEEP_<AXIS> — reference it from a ${payload:…} body.">

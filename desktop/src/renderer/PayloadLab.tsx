@@ -124,34 +124,29 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" role="dialog" aria-label="Payload Lab">
-      <div className="flex max-h-[88vh] w-[68rem] flex-col rounded-2xl border border-edge bg-panel shadow-2xl shadow-black/60">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm" role="dialog" aria-label="Complexity test">
+      <div className="flex max-h-[90vh] w-[44rem] flex-col rounded-2xl border border-edge bg-panel shadow-2xl shadow-black/60">
         <div className="flex items-start justify-between border-b border-edge px-4 py-3">
           <div>
-            <h2 className="flex items-center gap-2 font-bold text-white"><span className="text-flare"><Layers /></span>Payload Lab</h2>
-            <p className="mt-0.5 text-xs text-mist">Find algorithmic-complexity DoS: scale a crafted input against a target and measure how its response time grows.</p>
+            <h2 className="flex items-center gap-2 font-bold text-white"><span className="text-flare"><Layers /></span>Complexity test</h2>
+            <p className="mt-0.5 max-w-xl text-xs leading-relaxed text-mist">
+              Some servers slow down far faster than their input grows — a small, crafted request can pin a CPU for
+              seconds. This sends a growing payload at a target and measures whether its response time blows up
+              (super-linear), which is a hidden denial-of-service.
+            </p>
           </div>
-          <IconButton icon={X} label="close payload lab" onClick={onClose} />
+          <IconButton icon={X} label="close" onClick={onClose} />
         </div>
 
-        {/* The mental model, up front — the two panels below are steps 1 and 3. */}
-        <ol className="flex flex-wrap items-stretch gap-2 border-b border-edge bg-coal/50 px-4 py-3 text-xs">
-          {[
-            ['1', 'Pick an adversarial payload', 'a nested / oversized / pathological input, below'],
-            ['2', 'Drop its snippet in a request body', 'paste the ${payload:…} into your plan'],
-            ['3', 'Probe how the target scales', 'a super-linear O(n^k) is a latent DoS'],
-          ].map(([n, title, sub]) => (
-            <li key={n} className="flex min-w-[13rem] flex-1 items-start gap-2 rounded-lg border border-edge bg-panel px-3 py-2">
-              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blood/20 font-mono text-[11px] font-bold text-flare">{n}</span>
-              <span><span className="block font-medium text-ash">{title}</span><span className="block text-mist">{sub}</span></span>
-            </li>
-          ))}
-        </ol>
+        <div className="flex-1 space-y-6 overflow-y-auto p-4">
+          {/* ------------------------------------------------ STEP 1 ---- */}
+          <section>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-blood/20 font-mono text-xs font-bold text-flare">1</span>
+              <h3 className="font-semibold text-white">Choose an attack</h3>
+              <span className="text-xs text-mist">a nested, oversized or pathological input</span>
+            </div>
 
-        <div className="grid flex-1 grid-cols-2 gap-4 overflow-y-auto p-4">
-          {/* ---- Generator ---------------------------------------------- */}
-          <section className="flex min-w-0 flex-col gap-3">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Adversarial payloads</h3>
             <div className="space-y-3 rounded-xl border border-edge bg-coal p-3">
               {groups.map(([cat, kinds]) => (
                 <div key={cat}>
@@ -177,100 +172,95 @@ export function PayloadLab({ onClose }: { onClose: () => void }) {
             </div>
 
             {selected && (
-              <div className="space-y-3 rounded-xl border border-edge bg-coal p-3">
+              <div className="mt-3 space-y-3 rounded-xl border border-edge bg-coal p-3">
                 <div>
                   <div className="font-mono text-sm text-white">{selected.name}</div>
                   <p className="mt-1 text-xs leading-relaxed text-smoke">{selected.about}</p>
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-mist">
-                    <span>param <span className="text-ash">{selected.param}</span></span>
-                    <span>default <span className="text-ash">{selected.default.toLocaleString()}</span></span>
-                    <span>max <span className="text-ash">{selected.max.toLocaleString()}</span></span>
-                    <span>content-type <span className="font-mono text-ash">{selected.contentType}</span></span>
-                  </div>
                 </div>
 
                 <div className="rounded-lg border border-ember/40 bg-ink p-2.5">
-                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-mist">Use it — paste into a request body</div>
+                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-mist">Paste this into a request body in your plan</div>
                   <div className="flex items-center gap-2">
                     <code className="min-w-0 flex-1 truncate rounded bg-coal px-2 py-1.5 font-mono text-[11px] text-flare">{snippet}</code>
                     <Button icon={Copy} onClick={copySnippet}>{copied ? 'Copied' : 'Copy'}</Button>
                   </div>
-                  <p className="mt-1.5 text-[11px] leading-snug text-mist">loadr expands this to the full payload at run time; the probe on the right sweeps its size to fit the exponent.</p>
+                  <p className="mt-1.5 text-[11px] leading-snug text-mist">
+                    loadr grows it automatically as the test runs — you don't paste the raw bytes.
+                  </p>
                 </div>
 
-                <Field label={`preview magnitude (${selected.param}, max ${selected.max.toLocaleString()})`}>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={0}
-                      max={selected.max}
-                      step={Math.max(1, Math.floor(selected.max / 1000))}
-                      value={Math.min(magnitude, selected.max)}
-                      onChange={(e) => setMagnitude(Number(e.target.value))}
-                      className="flex-1 accent-ember"
-                      aria-label="magnitude slider"
-                    />
-                    <NumberInput
-                      className="w-32"
-                      min={0}
-                      max={selected.max}
-                      value={magnitude}
-                      onChange={(e) => setMagnitude(Math.min(Number(e.target.value) || 0, selected.max))}
-                      aria-label="magnitude"
-                    />
+                <details className="group">
+                  <summary className="cursor-pointer list-none text-[11px] text-smoke hover:text-ash">
+                    <span className="group-open:hidden">▸ See a sample of the payload</span>
+                    <span className="hidden group-open:inline">▾ Sample</span>
+                  </summary>
+                  <div className="mt-2 space-y-2">
+                    <Field label={`sample size (${selected.param}, max ${selected.max.toLocaleString()})`}>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="range" min={0} max={selected.max}
+                          step={Math.max(1, Math.floor(selected.max / 1000))}
+                          value={Math.min(magnitude, selected.max)}
+                          onChange={(e) => setMagnitude(Number(e.target.value))}
+                          className="flex-1 accent-ember" aria-label="magnitude slider"
+                        />
+                        <NumberInput className="w-28" min={0} max={selected.max} value={magnitude}
+                          onChange={(e) => setMagnitude(Math.min(Number(e.target.value) || 0, selected.max))} aria-label="magnitude" />
+                      </div>
+                    </Field>
+                    <Button icon={Code} onClick={generate} disabled={genBusy}>{genBusy ? 'Rendering…' : 'Show sample'}</Button>
+                    {genError && <pre className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded-lg border border-blood/40 bg-blood/10 p-2 text-xs text-flare">{genError}</pre>}
+                    {gen && (
+                      <div>
+                        <div className="mb-1 flex items-center justify-between text-[11px] text-mist">
+                          <span>first {Math.min(gen.preview.length, 2048)} bytes</span>
+                          <span className="font-mono text-ash">{fmtBytes(gen.bytes)} total</span>
+                        </div>
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-edge bg-ink p-2 font-mono text-[11px] leading-relaxed text-smoke">
+                          {gen.preview}{gen.bytes > gen.preview.length ? '\n…' : ''}
+                        </pre>
+                      </div>
+                    )}
                   </div>
-                </Field>
-
-                <Button icon={Code} onClick={generate} disabled={genBusy}>
-                  {genBusy ? 'Rendering…' : 'Preview the bytes'}
-                </Button>
-
-                {genError && (
-                  <pre className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded-lg border border-blood/40 bg-blood/10 p-2 text-xs text-flare">{genError}</pre>
-                )}
-                {gen && (
-                  <div>
-                    <div className="mb-1 flex items-center justify-between text-[11px] text-mist">
-                      <span>preview (first {Math.min(gen.preview.length, 2048)} bytes)</span>
-                      <span className="font-mono text-ash">{fmtBytes(gen.bytes)}</span>
-                    </div>
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-edge bg-ink p-2 font-mono text-[11px] leading-relaxed text-smoke">
-                      {gen.preview}
-                      {gen.bytes > gen.preview.length ? '\n…' : ''}
-                    </pre>
-                  </div>
-                )}
+                </details>
               </div>
             )}
           </section>
 
-          {/* ---- Complexity probe --------------------------------------- */}
-          <section className="flex min-w-0 flex-col gap-3">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wide text-smoke">Complexity probe</h3>
-            <p className="-mt-1 text-[11px] leading-snug text-mist">Runs a plan that references the snippet at each size, then fits the response-time growth: <span className="text-ash">O(n^k)</span>. k above ~1.6 is a likely DoS.</p>
+          {/* ------------------------------------------------ STEP 2 ---- */}
+          <section>
+            <div className="mb-2 flex items-center gap-2">
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-blood/20 font-mono text-xs font-bold text-flare">2</span>
+              <h3 className="font-semibold text-white">Run it against your target</h3>
+            </div>
+            <p className="mb-2 text-xs leading-relaxed text-mist">
+              Point at a plan whose request body contains that snippet. loadr sends it at each of the sizes below,
+              then fits how response time grows — <span className="text-ash">O(n^k)</span>. An exponent above ~1.6
+              means the target scales far worse than its input: a likely DoS.
+            </p>
             <div className="space-y-3 rounded-xl border border-edge bg-coal p-3">
-              <Field label="target plan" hint="a plan whose request body contains the ${payload:…} snippet">
+              <Field label="Plan to test" hint="its request body should contain the snippet above">
                 <div className="flex gap-2">
                   <TextInput value={planPath} placeholder="/path/to/plan.yaml" onChange={(e) => setPlanPath(e.target.value)} aria-label="plan path" />
                   <Button icon={FolderOpen} onClick={browsePlan}>Browse…</Button>
                 </div>
               </Field>
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="size axis" hint="matches the snippet"><TextInput value={axis} onChange={(e) => setAxis(e.target.value)} aria-label="axis" /></Field>
-                <Field label="max exponent (optional)"><TextInput value={maxExpText} placeholder="e.g. 1.5" onChange={(e) => setMaxExpText(e.target.value)} aria-label="max exponent" /></Field>
-              </div>
-              <Field label="sizes (comma-separated)" hint="Exported to the plan as LOADR_SWEEP_<AXIS> — reference it from a ${payload:…} body.">
+              <Field label="Sizes to try" hint="loadr sends the payload at each of these, from small to large">
                 <TextInput value={sizesText} onChange={(e) => setSizesText(e.target.value)} aria-label="sizes" />
               </Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Grow which knob" hint="usually the payload's own size"><TextInput value={axis} onChange={(e) => setAxis(e.target.value)} aria-label="axis" /></Field>
+                <Field label="Fail above (optional)" hint="flag if the exponent exceeds this"><TextInput value={maxExpText} placeholder="e.g. 1.5" onChange={(e) => setMaxExpText(e.target.value)} aria-label="max exponent" /></Field>
+              </div>
               <Button variant="primary" icon={Play} onClick={runProbe} disabled={probeBusy}>
-                {probeBusy ? 'Running probe…' : 'Run probe'}
+                {probeBusy ? 'Running the test…' : 'Run the test'}
               </Button>
               {probeError && (
                 <pre className="max-h-24 overflow-y-auto whitespace-pre-wrap rounded-lg border border-blood/40 bg-blood/10 p-2 text-xs text-flare">{probeError}</pre>
               )}
             </div>
 
-            {probe && <ProbeResult result={probe} axis={axis.trim() || 'depth'} maxExp={maxExpText.trim() ? Number(maxExpText.trim()) : null} />}
+            {probe && <div className="mt-3"><ProbeResult result={probe} axis={axis.trim() || 'depth'} maxExp={maxExpText.trim() ? Number(maxExpText.trim()) : null} /></div>}
           </section>
         </div>
       </div>

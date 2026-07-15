@@ -223,6 +223,9 @@
     }
     root.querySelector("[data-pv]").addEventListener("click", function () { go(i - 1); });
     root.querySelector("[data-nx]").addEventListener("click", function () { go(i + 1); });
-    go(0);
+    // Rest on the fully-composed pattern so each card is distinct at a glance;
+    // frame 0 is "scenario + first request" for every pattern and reads as a
+    // duplicate. Prev/next still walks the build-up from the start.
+    go(frames.length - 1);
   });
 })();

@@ -1224,7 +1224,7 @@ def render_walkthroughs():
             f'<img data-fr data-cap="Step {i + 1}/3 · {esc(caps[i])}" src="/assets/canvas-walk/{slug}/{i}.png" '
             f'loading="lazy" alt="{esc(title)} build-up, step {i + 1}" '
             f'class="absolute inset-0 h-full w-full object-contain transition-opacity duration-300 '
-            f'{"opacity-100" if i == 0 else "opacity-0"}">'
+            f'{"opacity-100" if i == len(caps) - 1 else "opacity-0"}">'
             for i in range(3)
         )
         cards.append(

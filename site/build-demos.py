@@ -1223,7 +1223,7 @@ def render_walkthroughs():
         slides = "".join(
             f'<img data-fr data-cap="Step {i + 1}/3 · {esc(caps[i])}" src="/assets/canvas-walk/{slug}/{i}.png" '
             f'loading="lazy" alt="{esc(title)} build-up, step {i + 1}" '
-            f'class="absolute inset-0 h-full w-full object-cover transition-opacity duration-300 '
+            f'class="absolute inset-0 h-full w-full object-contain transition-opacity duration-300 '
             f'{"opacity-100" if i == 0 else "opacity-0"}">'
             for i in range(3)
         )
@@ -1232,7 +1232,7 @@ def render_walkthroughs():
             f'<div class="flex items-baseline justify-between gap-2 border-b border-edge px-3 py-2">'
             f'<span class="font-bold text-white">{title}</span>'
             f'<span class="text-xs text-smoke">{hint}</span></div>'
-            f'<div class="relative aspect-[1280/831] bg-ink">{slides}'
+            f'<div class="relative aspect-[736/580] bg-ink">{slides}'
             f'<button data-pv aria-label="Previous step" class="absolute left-1.5 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full border border-edge bg-coal/85 text-smoke opacity-0 transition hover:text-white group-hover:opacity-100">'
             f'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>'
             f'<button data-nx aria-label="Next step" class="absolute right-1.5 top-1/2 z-10 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full border border-edge bg-coal/85 text-smoke opacity-0 transition hover:text-white group-hover:opacity-100">'

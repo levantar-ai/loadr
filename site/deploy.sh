@@ -9,6 +9,12 @@ BUCKET="loadr.io"
 DISTRIBUTION_ID="${DISTRIBUTION_ID:-E1O86EYW71WS3}"
 AWS_PROFILE="${AWS_PROFILE:-personal}"
 
+# In CI, credentials come from the environment (GitHub OIDC via
+# aws-actions/configure-aws-credentials); locally, aws-vault + MFA.
+aws_run() {
+  if [ -n "${CI:-}" ]; then aws "$@"; else aws-vault exec "$AWS_PROFILE" -- aws "$@"; fi
+}
+
 echo "==> generating plugin pages"
 python3 "$ROOT/site/build-plugins.py"
 
@@ -82,21 +88,29 @@ find "$DIST" -name "*.html" -exec sed -i \
 echo "    css?v=${CSS_HASH}  js?v=${JS_HASH}  consent?v=${CONSENT_HASH}"
 
 echo "==> syncing to s3://$BUCKET"
+# Videos are recorded + uploaded from a workstation and are git-ignored, so a
+# CI checkout has none. Without this guard the --delete sync would wipe every
+# video off the bucket on each CI deploy.
+VIDEO_EXCLUDE=()
+if [ ! -d "$ROOT/site/videos/out" ] || [ -z "$(ls "$ROOT/site/videos/out" 2>/dev/null)" ]; then
+  VIDEO_EXCLUDE=(--exclude "videos/*")
+  echo "    (no local videos — preserving bucket videos/)"
+fi
 # Long-lived cache for static assets…
-aws-vault exec "$AWS_PROFILE" -- aws s3 sync "$DIST" "s3://$BUCKET" \
-  --delete \
+aws_run s3 sync "$DIST" "s3://$BUCKET" \
+  --delete "${VIDEO_EXCLUDE[@]}" \
   --exclude "*.html" \
   --cache-control "public, max-age=86400" \
   --quiet
 # …short cache for HTML so deploys propagate fast.
-aws-vault exec "$AWS_PROFILE" -- aws s3 sync "$DIST" "s3://$BUCKET" \
+aws_run s3 sync "$DIST" "s3://$BUCKET" \
   --exclude "*" --include "*.html" \
   --cache-control "public, max-age=300, must-revalidate" \
   --content-type "text/html; charset=utf-8" \
   --quiet
 
 echo "==> invalidating CloudFront ($DISTRIBUTION_ID)"
-aws-vault exec "$AWS_PROFILE" -- aws cloudfront create-invalidation \
+aws_run cloudfront create-invalidation \
   --distribution-id "$DISTRIBUTION_ID" \
   --paths "/*" \
   --query "Invalidation.Id" --output text

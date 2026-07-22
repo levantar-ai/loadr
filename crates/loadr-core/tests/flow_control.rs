@@ -434,3 +434,47 @@ scenarios:
         "no latency percentiles recorded"
     );
 }
+
+/// Regression: an arrival-rate scenario must finish promptly once its scheduled
+/// duration elapses — it must NOT hang for the full `graceful_stop` window with
+/// idle workers parked. Before the fix, every worker held its own `idle_tx`
+/// clone, so closing the dispatcher's clone never closed the channel; parked
+/// workers blocked until `arm_graceful_stop` cancelled the scenario (default
+/// 30s), tacking a flat idle tail onto every run. Here `graceful_stop` is 20s
+/// but the plan only schedules ~1s of load, so a correct implementation returns
+/// in well under the graceful window.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn arrival_rate_does_not_wait_out_graceful_stop() {
+    let handler = Arc::new(RecordingHandler::default());
+    let started = std::time::Instant::now();
+    run(
+        r#"
+scenarios:
+  s:
+    executor: constant-arrival-rate
+    rate: 50
+    duration: 1s
+    pre_allocated_vus: 10
+    max_vus: 50
+    graceful_stop: 20s
+    flow:
+      - request: { url: "http://x/ping" }
+"#,
+        handler.clone(),
+    )
+    .await;
+    let elapsed = started.elapsed();
+    // Scheduled ~1s of work; allow generous slack for CI, but far below the 20s
+    // graceful_stop that the pre-fix hang would have waited out.
+    assert!(
+        elapsed < std::time::Duration::from_secs(10),
+        "arrival-rate run hung for {elapsed:?} — expected it to finish near the 1s \
+         schedule, not wait out the 20s graceful_stop"
+    );
+    // And it actually did the work.
+    assert!(
+        handler.count.load(Ordering::Relaxed) >= 30,
+        "expected ~50 iterations, got {}",
+        handler.count.load(Ordering::Relaxed)
+    );
+}

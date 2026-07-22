@@ -720,8 +720,22 @@ async fn run_arrival_rate(
             }
         }
     }
+    // Dispatch is done. Release the parked workers *now* rather than waiting
+    // out the graceful-stop timer.
+    //
+    // Each worker holds its own clone of `idle_tx`, so `drop(idle_tx)` here only
+    // drops the dispatcher's clone — the channel stays open and parked workers
+    // block on their oneshot forever, escaping only when `arm_graceful_stop`
+    // eventually cancels the scenario (a flat `graceful_stop`, default 30s, of
+    // idle VUs tacked onto every arrival-rate run). Dropping the *receiver*
+    // closes the channel from the far side: a parked worker's queued oneshot is
+    // dropped (its `rx` errors -> break) and any subsequent `idle_tx.send` errors
+    // -> break. In-flight iterations still finish naturally (`run_one` only
+    // watches `scenario_cancel`), then break when they try to re-park.
     drop(idle_tx);
-    // Allow in-flight iterations their graceful stop, then cancel.
+    drop(idle_rx);
+    // Await in-flight iterations; `arm_graceful_stop` remains the hard ceiling
+    // for any that genuinely hang.
     for h in worker_handles {
         let _ = h.await;
     }

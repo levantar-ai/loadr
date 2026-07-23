@@ -8,11 +8,12 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock};
 use std::time::Instant;
 
 use async_trait::async_trait;
-use loadr_config::HttpDefaults;
+use loadr_config::{GrpcTransport, HttpDefaults};
 use loadr_core::error::ProtocolError;
 use loadr_core::protocol::{
     GrpcRequest, PreparedRequest, ProtocolHandler, ProtocolResponse, Timings,
@@ -20,7 +21,9 @@ use loadr_core::protocol::{
 use loadr_core::vu::VuContext;
 use prost::Message as _;
 use prost_reflect::{DescriptorPool, DynamicMessage, MethodDescriptor};
+use tonic::client::GrpcService;
 use tonic::codec::{Codec, DecodeBuf, Decoder, EncodeBuf, Encoder};
+use tonic::codegen::{Body as HttpBody, StdError};
 use tonic::metadata::{MetadataKey, MetadataValue};
 use tonic::transport::{Channel, Endpoint};
 use tonic::Status;
@@ -29,6 +32,7 @@ use tonic_reflection::pb::v1::server_reflection_request::MessageRequest;
 use tonic_reflection::pb::v1::server_reflection_response::MessageResponse;
 use tonic_reflection::pb::v1::ServerReflectionRequest;
 
+use crate::grpc_transport::{RawChannel, TlsParams};
 use crate::net::ms_since;
 
 // ---------------------------------------------------------------------------
@@ -38,6 +42,18 @@ use crate::net::ms_since;
 fn pool_cache() -> &'static Mutex<HashMap<String, DescriptorPool>> {
     static CACHE: OnceLock<Mutex<HashMap<String, DescriptorPool>>> = OnceLock::new();
     CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// tower::buffer queue size per pooled channel (`LOADR_GRPC_BUFFER_SIZE`).
+fn grpc_buffer_size() -> usize {
+    static SIZE: OnceLock<usize> = OnceLock::new();
+    *SIZE.get_or_init(|| {
+        std::env::var("LOADR_GRPC_BUFFER_SIZE")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(4096)
+            .max(1)
+    })
 }
 
 fn cache_get(key: &str) -> Option<DescriptorPool> {
@@ -118,13 +134,97 @@ impl Decoder for DynamicDecoder {
 }
 
 // ---------------------------------------------------------------------------
-// Per-VU channels
+// Channels: per-VU (default) and shared pool (opt-in), on either transport
 // ---------------------------------------------------------------------------
 
-/// Lazily connected tonic channels per endpoint, stored per VU.
+/// A fixed set of lazily connected channels, handed out round-robin.
+/// Cloning a `Channel` or `RawChannel` is cheap and shares the underlying
+/// connection, so a small pool multiplexes arbitrarily many concurrent
+/// streams.
+struct RoundRobin<T: Clone> {
+    items: Vec<T>,
+    next: AtomicU64,
+}
+
+impl<T: Clone> RoundRobin<T> {
+    fn next(&self) -> T {
+        let i = self.next.fetch_add(1, Ordering::Relaxed) as usize % self.items.len();
+        self.items[i].clone()
+    }
+
+    fn len(&self) -> usize {
+        self.items.len()
+    }
+}
+
+/// Lazily connected gRPC channels per endpoint, stored per VU.
 #[derive(Default)]
 struct GrpcChannels {
     channels: HashMap<String, Channel>,
+    /// VU-local memo of shared pools (the pools themselves are global).
+    pools: HashMap<String, Arc<RoundRobin<Channel>>>,
+    /// Raw hyper-h2 channels per endpoint (`transport: raw`).
+    raws: HashMap<String, RawChannel>,
+    /// VU-local memo of shared raw pools.
+    raw_pools: HashMap<String, Arc<RoundRobin<RawChannel>>>,
+}
+
+/// The client a request runs on, per its effective `transport`.
+enum CallChannel {
+    Buffered(Channel),
+    Raw(RawChannel),
+}
+
+/// Global registry of shared pools, keyed by (endpoint, size).
+type PoolRegistry<T> = RwLock<HashMap<(String, usize), Arc<RoundRobin<T>>>>;
+
+/// Get-or-create the shared pool of `size` items for `endpoint` in `pools`.
+/// Double-checked read→write; `build` does no I/O and no `.await` is held
+/// across the lock, so building under the write lock is fine.
+fn shared_pool<T: Clone>(
+    pools: &PoolRegistry<T>,
+    endpoint: &str,
+    size: usize,
+    build: impl Fn() -> Result<T, ProtocolError>,
+) -> Result<Arc<RoundRobin<T>>, ProtocolError> {
+    let key = (endpoint.to_string(), size);
+    if let Some(pool) = pools
+        .read()
+        .unwrap_or_else(PoisonError::into_inner)
+        .get(&key)
+    {
+        return Ok(pool.clone());
+    }
+    let mut map = pools.write().unwrap_or_else(PoisonError::into_inner);
+    if let Some(pool) = map.get(&key) {
+        return Ok(pool.clone());
+    }
+    let mut items = Vec::with_capacity(size);
+    for _ in 0..size {
+        items.push(build()?);
+    }
+    let pool = Arc::new(RoundRobin {
+        items,
+        next: AtomicU64::new(0),
+    });
+    map.insert(key, pool.clone());
+    Ok(pool)
+}
+
+/// Parse a `LOADR_GRPC_TRANSPORT` value (`channel` | `raw`, case-insensitive).
+fn parse_transport(value: Option<&str>) -> Option<GrpcTransport> {
+    let value = value?.trim();
+    if value.is_empty() {
+        return None;
+    }
+    match value.to_ascii_lowercase().as_str() {
+        "channel" => Some(GrpcTransport::Channel),
+        "raw" => Some(GrpcTransport::Raw),
+        other => {
+            tracing::warn!("ignoring unknown LOADR_GRPC_TRANSPORT value `{other}`");
+            None
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -134,7 +234,19 @@ struct GrpcChannels {
 /// Dynamic gRPC protocol handler.
 pub struct GrpcHandler {
     tls: Option<tonic::transport::ClientTlsConfig>,
+    /// rustls config for `transport: raw` (ALPN `h2`). Unlike the tonic
+    /// path it honors `insecure_skip_verify` and TLS version pinning.
+    raw_tls: Arc<rustls::ClientConfig>,
+    /// SNI override from `tls.server_name` (raw transport).
+    server_name: Option<String>,
+    /// Fleet-wide transport override from `LOADR_GRPC_TRANSPORT`.
+    transport_override: Option<GrpcTransport>,
     base_dir: PathBuf,
+    /// Shared channel pools. Consulted only on a VU's first pooled request
+    /// per endpoint; hits are memoized per VU.
+    channel_pools: PoolRegistry<Channel>,
+    /// Same, for `transport: raw`.
+    raw_pools: PoolRegistry<RawChannel>,
 }
 
 impl GrpcHandler {
@@ -165,11 +277,26 @@ impl GrpcHandler {
             tls = Some(config);
         }
         if tls_cfg.insecure_skip_verify {
-            tracing::warn!("grpc transport does not support insecure_skip_verify; ignoring");
+            tracing::warn!(
+                "the grpc `channel` transport does not support insecure_skip_verify; \
+                 ignored unless `transport: raw`"
+            );
         }
+        let raw_tls = Arc::new(crate::tls::client_config(
+            tls_cfg,
+            base_dir,
+            vec![b"h2".to_vec()],
+        )?);
         Ok(GrpcHandler {
             tls,
+            raw_tls,
+            server_name: tls_cfg.server_name.clone(),
+            transport_override: parse_transport(
+                std::env::var("LOADR_GRPC_TRANSPORT").ok().as_deref(),
+            ),
             base_dir: base_dir.to_path_buf(),
+            channel_pools: RwLock::new(HashMap::new()),
+            raw_pools: RwLock::new(HashMap::new()),
         })
     }
 
@@ -195,12 +322,57 @@ impl GrpcHandler {
         Ok((format!("{scheme}://{host}:{port}"), tls))
     }
 
+    /// Endpoint for a shared pooled channel: large fixed HTTP/2 windows (many
+    /// concurrent streams share one connection) plus keepalive.
+    fn pooled_endpoint(&self, endpoint: &str, tls: bool) -> Result<Endpoint, ProtocolError> {
+        let mut ep = Endpoint::from_shared(endpoint.to_string())
+            .map_err(|e| {
+                ProtocolError::InvalidRequest(format!("invalid grpc endpoint `{endpoint}`: {e}"))
+            })?
+            .initial_stream_window_size(4 * 1024 * 1024)
+            .initial_connection_window_size(8 * 1024 * 1024)
+            .http2_keep_alive_interval(std::time::Duration::from_secs(30))
+            .keep_alive_while_idle(true)
+            // Many VUs share each pooled channel; widen the tower::buffer
+            // request queue (tonic default 1024) so `ready()` doesn't stall
+            // before the connection itself is the limit.
+            .buffer_size(grpc_buffer_size());
+        if tls {
+            ep = ep
+                .tls_config(self.tls.clone().unwrap_or_default())
+                .map_err(|e| ProtocolError::Tls(format!("grpc tls config error: {e}")))?;
+        }
+        Ok(ep)
+    }
+
     fn channel(
         &self,
         ctx: &mut VuContext,
         endpoint: &str,
         tls: bool,
+        pool_size: Option<usize>,
     ) -> Result<Channel, ProtocolError> {
+        if let Some(size) = pool_size {
+            // Config validation rejects 0; clamp anyway so `% len` can never
+            // divide by zero if a caller bypasses validation.
+            let size = size.max(1);
+            // Hot path: VU-local memo — no lock, no allocation.
+            let state = ctx.extensions.get_or_insert_with(GrpcChannels::default);
+            if let Some(pool) = state.pools.get(endpoint) {
+                if pool.len() == size {
+                    return Ok(pool.next());
+                }
+            }
+            // First use (or size changed for this endpoint): global map.
+            let pool = shared_pool(&self.channel_pools, endpoint, size, || {
+                Ok(self.pooled_endpoint(endpoint, tls)?.connect_lazy())
+            })?;
+            let channel = pool.next();
+            let state = ctx.extensions.get_or_insert_with(GrpcChannels::default);
+            state.pools.insert(endpoint.to_string(), pool);
+            return Ok(channel);
+        }
+        // ---- existing per-VU path: keep byte-for-byte as it is today ----
         let channels = ctx.extensions.get_or_insert_with(GrpcChannels::default);
         if let Some(ch) = channels.channels.get(endpoint) {
             return Ok(ch.clone());
@@ -220,6 +392,57 @@ impl GrpcHandler {
             .channels
             .insert(endpoint.to_string(), channel.clone());
         Ok(channel)
+    }
+
+    /// `transport: raw` counterpart of [`Self::channel`]: per-VU connection by
+    /// default, shared round-robin pool when `pool_size` is set.
+    fn raw(
+        &self,
+        ctx: &mut VuContext,
+        endpoint: &str,
+        tls: bool,
+        pool_size: Option<usize>,
+    ) -> Result<RawChannel, ProtocolError> {
+        if let Some(size) = pool_size {
+            let size = size.max(1);
+            let state = ctx.extensions.get_or_insert_with(GrpcChannels::default);
+            if let Some(pool) = state.raw_pools.get(endpoint) {
+                if pool.len() == size {
+                    return Ok(pool.next());
+                }
+            }
+            let pool = shared_pool(&self.raw_pools, endpoint, size, || {
+                self.raw_channel(endpoint, tls)
+            })?;
+            let raw = pool.next();
+            let state = ctx.extensions.get_or_insert_with(GrpcChannels::default);
+            state.raw_pools.insert(endpoint.to_string(), pool);
+            return Ok(raw);
+        }
+        let state = ctx.extensions.get_or_insert_with(GrpcChannels::default);
+        if let Some(raw) = state.raws.get(endpoint) {
+            return Ok(raw.clone());
+        }
+        let raw = self.raw_channel(endpoint, tls)?;
+        let state = ctx.extensions.get_or_insert_with(GrpcChannels::default);
+        state.raws.insert(endpoint.to_string(), raw.clone());
+        Ok(raw)
+    }
+
+    /// Build one raw channel handle for `endpoint` (no I/O; dials lazily).
+    fn raw_channel(&self, endpoint: &str, tls: bool) -> Result<RawChannel, ProtocolError> {
+        let tls_params = if tls {
+            let url = url::Url::parse(endpoint).map_err(|e| {
+                ProtocolError::InvalidRequest(format!("invalid grpc endpoint `{endpoint}`: {e}"))
+            })?;
+            Some(TlsParams {
+                config: self.raw_tls.clone(),
+                server_name: crate::tls::server_name(self.server_name.as_deref(), &url)?,
+            })
+        } else {
+            None
+        };
+        RawChannel::new(endpoint, tls_params)
     }
 
     /// Compile `.proto` files in-process (cached globally per file set).
@@ -273,19 +496,25 @@ impl GrpcHandler {
     }
 
     /// Fetch descriptors via gRPC server reflection v1 (cached per
-    /// endpoint+symbol).
-    async fn pool_from_reflection(
+    /// endpoint+symbol). The client is generic over the transport; on a
+    /// cache hit it is dropped without any I/O.
+    async fn pool_from_reflection<T>(
         &self,
-        channel: Channel,
+        mut client: ServerReflectionClient<T>,
         endpoint: &str,
         symbol: &str,
-    ) -> Result<DescriptorPool, String> {
+    ) -> Result<DescriptorPool, String>
+    where
+        T: GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: HttpBody<Data = bytes::Bytes> + Send + 'static,
+        <T::ResponseBody as HttpBody>::Error: Into<StdError> + Send,
+    {
         let key = format!("reflection:{endpoint}::{symbol}");
         if let Some(pool) = cache_get(&key) {
             return Ok(pool);
         }
 
-        let mut client = ServerReflectionClient::new(channel);
         let request = ServerReflectionRequest {
             host: String::new(),
             message_request: Some(MessageRequest::FileContainingSymbol(symbol.to_string())),
@@ -340,18 +569,41 @@ impl ProtocolHandler for GrpcHandler {
             ProtocolError::InvalidRequest("grpc request requires `grpc:` options".to_string())
         })?;
         let (endpoint, tls) = self.endpoint_uri(&request.url)?;
-        let channel = self.channel(ctx, &endpoint, tls)?;
+        let transport = self.transport_override.unwrap_or(grpc.transport);
+        let chan = match transport {
+            GrpcTransport::Channel => {
+                CallChannel::Buffered(self.channel(ctx, &endpoint, tls, grpc.channel_pool_size)?)
+            }
+            GrpcTransport::Raw => {
+                CallChannel::Raw(self.raw(ctx, &endpoint, tls, grpc.channel_pool_size)?)
+            }
+        };
 
         let start = Instant::now();
 
         // Resolve the descriptor pool.
         let pool = if grpc.reflection {
-            match tokio::time::timeout(
-                request.timeout,
-                self.pool_from_reflection(channel.clone(), &endpoint, &grpc.service),
-            )
-            .await
-            {
+            let reflected = async {
+                match &chan {
+                    CallChannel::Buffered(channel) => {
+                        self.pool_from_reflection(
+                            ServerReflectionClient::new(channel.clone()),
+                            &endpoint,
+                            &grpc.service,
+                        )
+                        .await
+                    }
+                    CallChannel::Raw(raw) => {
+                        self.pool_from_reflection(
+                            ServerReflectionClient::with_origin(raw.clone(), raw.origin().clone()),
+                            &endpoint,
+                            &grpc.service,
+                        )
+                        .await
+                    }
+                }
+            };
+            match tokio::time::timeout(request.timeout, reflected).await {
                 Ok(Ok(pool)) => pool,
                 Ok(Err(message)) => {
                     return Ok(grpc_error_response(message, start, &request.url));
@@ -412,10 +664,21 @@ impl ProtocolHandler for GrpcHandler {
         let codec = DynamicCodec::for_method(&method);
         let metadata = build_metadata(grpc, &request.headers)?;
 
-        let mut client = tonic::client::Grpc::new(channel);
         let shape = (method.is_client_streaming(), method.is_server_streaming());
-        let call = invoke(&mut client, shape, messages, path, codec, metadata);
-        let outcome = match tokio::time::timeout(request.timeout, call).await {
+        let outcome = match chan {
+            CallChannel::Buffered(channel) => {
+                let mut client = tonic::client::Grpc::new(channel);
+                let call = invoke(&mut client, shape, messages, path, codec, metadata);
+                tokio::time::timeout(request.timeout, call).await
+            }
+            CallChannel::Raw(raw) => {
+                let origin = raw.origin().clone();
+                let mut client = tonic::client::Grpc::with_origin(raw, origin);
+                let call = invoke(&mut client, shape, messages, path, codec, metadata);
+                tokio::time::timeout(request.timeout, call).await
+            }
+        };
+        let outcome = match outcome {
             Ok(outcome) => outcome,
             Err(_) => return Ok(crate::http::timeout_response(request, start)),
         };
@@ -506,18 +769,25 @@ fn build_metadata(
 }
 
 /// Run the call in the right shape and collect every response message.
-async fn invoke(
-    client: &mut tonic::client::Grpc<Channel>,
+/// Generic over the transport: `Grpc<Channel>` and `Grpc<RawChannel>`
+/// monomorphize to the same code paths.
+async fn invoke<T>(
+    client: &mut tonic::client::Grpc<T>,
     shape: (bool, bool),
     messages: Vec<DynamicMessage>,
     path: http::uri::PathAndQuery,
     codec: DynamicCodec,
     metadata: tonic::metadata::MetadataMap,
-) -> Result<Vec<DynamicMessage>, Status> {
-    client
-        .ready()
-        .await
-        .map_err(|e| Status::unavailable(format!("connection failed: {e}")))?;
+) -> Result<Vec<DynamicMessage>, Status>
+where
+    T: GrpcService<tonic::body::Body>,
+    T::ResponseBody: HttpBody + Send + 'static,
+    <T::ResponseBody as HttpBody>::Error: Into<StdError>,
+{
+    client.ready().await.map_err(|e| {
+        let e: StdError = e.into();
+        Status::unavailable(format!("connection failed: {e}"))
+    })?;
 
     match shape {
         // Unary
@@ -567,4 +837,23 @@ async fn collect_stream(
         out.push(message);
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_transport_values() {
+        assert_eq!(parse_transport(None), None);
+        assert_eq!(parse_transport(Some("")), None);
+        assert_eq!(parse_transport(Some("  ")), None);
+        assert_eq!(parse_transport(Some("raw")), Some(GrpcTransport::Raw));
+        assert_eq!(parse_transport(Some(" RAW ")), Some(GrpcTransport::Raw));
+        assert_eq!(
+            parse_transport(Some("Channel")),
+            Some(GrpcTransport::Channel)
+        );
+        assert_eq!(parse_transport(Some("bogus")), None);
+    }
 }

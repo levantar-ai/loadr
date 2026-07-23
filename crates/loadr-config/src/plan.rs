@@ -1246,6 +1246,32 @@ pub struct GrpcOptions {
     /// gRPC metadata (in addition to request `headers`).
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub metadata: IndexMap<String, String>,
+    /// Share a fixed pool of N HTTP/2 channels across all VUs for this endpoint,
+    /// round-robined (vs. the default: one connection per VU). Recommended for
+    /// high-concurrency runs against a single endpoint. Must be >= 1 when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_pool_size: Option<usize>,
+    /// Client transport: `channel` (default) or `raw`. The `LOADR_GRPC_TRANSPORT`
+    /// env var overrides this for whole-fleet A/B runs.
+    #[serde(default, skip_serializing_if = "GrpcTransport::is_default")]
+    pub transport: GrpcTransport,
+}
+
+/// Client transport driving gRPC calls.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum GrpcTransport {
+    /// tonic `Channel`: a tower::buffer queue plus a worker task per channel.
+    #[default]
+    Channel,
+    /// Direct hyper HTTP/2 driven from the VU task (experimental perf path).
+    Raw,
+}
+
+impl GrpcTransport {
+    fn is_default(&self) -> bool {
+        *self == GrpcTransport::Channel
+    }
 }
 
 /// GraphQL request options.

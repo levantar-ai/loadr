@@ -88,6 +88,11 @@ pub struct GrpcRequest {
     /// Streaming request messages.
     pub messages: Vec<serde_json::Value>,
     pub metadata: Vec<(String, String)>,
+    /// Share a fixed pool of N HTTP/2 channels across all VUs (round-robin)
+    /// instead of one connection per VU. `None` = per-VU (default).
+    pub channel_pool_size: Option<usize>,
+    /// Client transport (tonic channel vs raw hyper h2).
+    pub transport: loadr_config::GrpcTransport,
 }
 
 #[derive(Debug, Clone, Default)]

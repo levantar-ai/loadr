@@ -1627,6 +1627,8 @@ impl FlowRunner {
                     .iter()
                     .map(|(k, v)| Ok((k.clone(), render_str(self, v, vu, script)?)))
                     .collect::<Result<_, PrepareError>>()?,
+                channel_pool_size: grpc.channel_pool_size,
+                transport: grpc.transport,
             });
         }
         if let Some(socket) = &req.socket {

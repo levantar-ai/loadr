@@ -101,6 +101,227 @@ thresholds:
     assert!(junit.contains("</testsuites>"));
 }
 
+/// Open-model dispatcher (`constant-arrival-rate`): the schedule is met with
+/// zero dropped iterations when workers keep up, and `--worker-threads`
+/// bounds the runtime. Exercises the claim-budget worker wake path.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn arrival_rate_keeps_schedule_without_drops() {
+    let server = loadr_testserver::HttpTestServer::spawn()
+        .await
+        .expect("server");
+    let dir = tempfile::tempdir().expect("tmp");
+    let yaml = format!(
+        r#"
+name: e2e-arrival-rate
+defaults:
+  http: {{ base_url: {base} }}
+scenarios:
+  arrivals:
+    executor: constant-arrival-rate
+    rate: 200
+    duration: 2s
+    graceful_stop: 100ms
+    pre_allocated_vus: 20
+    max_vus: 60
+    flow:
+      - request:
+          name: json
+          url: /json
+          checks:
+            - {{ type: status, equals: 200 }}
+"#,
+        base = server.base_url()
+    );
+    let test = write_test(dir.path(), "arrivals.yaml", &yaml);
+    let summary_path = dir.path().join("summary.json");
+
+    let output = Command::new(BIN)
+        .args([
+            "run",
+            "--quiet",
+            "--worker-threads",
+            "2",
+            "--summary-export",
+            summary_path.to_str().expect("path"),
+            test.to_str().expect("path"),
+        ])
+        .output()
+        .expect("run loadr");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "expected success.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    let summary: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&summary_path).expect("summary file"))
+            .expect("summary json");
+    let metric_sum = |name: &str| -> f64 {
+        summary["metrics"]
+            .as_array()
+            .expect("metrics")
+            .iter()
+            .find(|m| m["metric"] == name)
+            .and_then(|m| m["agg"]["sum"].as_f64())
+            .unwrap_or(0.0)
+    };
+    let iterations = metric_sum("iterations");
+    // 200/s over 2s = ~400; allow generous slack for CI clocks but require
+    // that the dispatcher actually drove the schedule.
+    assert!(
+        (300.0..=460.0).contains(&iterations),
+        "iterations off schedule: {iterations}\nstdout: {stdout}"
+    );
+    assert_eq!(
+        metric_sum("dropped_iterations"),
+        0.0,
+        "dropped iterations with idle workers\nstdout: {stdout}"
+    );
+}
+
+/// The configurable dispatch interval must not discard the interval ending at
+/// the scenario deadline, even when one tick is longer than the scenario.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn arrival_rate_flushes_final_dispatch_interval() {
+    let server = loadr_testserver::HttpTestServer::spawn()
+        .await
+        .expect("server");
+    let dir = tempfile::tempdir().expect("tmp");
+    let yaml = format!(
+        r#"
+name: e2e-arrival-rate-final-interval
+defaults:
+  http: {{ base_url: {base} }}
+scenarios:
+  arrivals:
+    executor: constant-arrival-rate
+    rate: 100
+    duration: 250ms
+    graceful_stop: 100ms
+    pre_allocated_vus: 25
+    max_vus: 25
+    flow:
+      - request: {{ url: /json }}
+"#,
+        base = server.base_url()
+    );
+    let test = write_test(dir.path(), "final-interval.yaml", &yaml);
+    let summary_path = dir.path().join("summary.json");
+
+    let output = Command::new(BIN)
+        .env("LOADR_DISPATCH_TICK_US", "1000000")
+        .args([
+            "run",
+            "--quiet",
+            "--summary-export",
+            summary_path.to_str().expect("path"),
+            test.to_str().expect("path"),
+        ])
+        .output()
+        .expect("run loadr");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "expected success.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    let summary: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&summary_path).expect("summary file"))
+            .expect("summary json");
+    let iterations = summary["metrics"]
+        .as_array()
+        .expect("metrics")
+        .iter()
+        .find(|m| m["metric"] == "iterations")
+        .and_then(|m| m["agg"]["sum"].as_f64())
+        .unwrap_or(0.0);
+    assert!(
+        (20.0..=25.0).contains(&iterations),
+        "final interval was not flushed: {iterations}\nstdout: {stdout}"
+    );
+}
+
+/// Saturated open model: with `max_vus` far below the schedule, unclaimed
+/// arrivals must surface as dropped iterations — and none may vanish.
+/// Completed plus dropped matches the scheduled arrivals within one tick's
+/// batch (`ceil(rate*tick)+1`); the deadline flush publishes the final
+/// partial interval, so there is no unpublished tail (the exact identity is
+/// unit-tested on the dispatcher's gate). The dispatch tick is pinned on the
+/// child process — `dispatch_tick()` is a process-wide `OnceLock`, so setting
+/// it on the test process would not work.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn arrival_rate_saturation_conserves_scheduled_arrivals() {
+    let dir = tempfile::tempdir().expect("tmp");
+    // 200/s scheduled against max 2 VUs x 50ms iterations (~40/s capacity):
+    // most arrivals must expire as drops. Think-time-only flow, no network.
+    // graceful_stop must outlast one iteration so claimed in-flight work
+    // finishes (an aborted claim is neither completed nor dropped).
+    let yaml = r#"
+name: e2e-arrival-saturation
+scenarios:
+  saturated:
+    executor: constant-arrival-rate
+    rate: 200
+    duration: 2s
+    pre_allocated_vus: 1
+    max_vus: 2
+    graceful_stop: 1s
+    flow:
+      - think_time: { type: constant, duration: 50ms }
+"#;
+    let test = write_test(dir.path(), "saturation.yaml", yaml);
+    let summary_path = dir.path().join("summary.json");
+
+    let output = Command::new(BIN)
+        .env("LOADR_DISPATCH_TICK_US", "20000")
+        .args([
+            "run",
+            "--quiet",
+            "--worker-threads",
+            "2",
+            "--summary-export",
+            summary_path.to_str().expect("path"),
+            test.to_str().expect("path"),
+        ])
+        .output()
+        .expect("run loadr");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        output.status.success(),
+        "expected success.\nstdout: {stdout}\nstderr: {stderr}"
+    );
+
+    let summary: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&summary_path).expect("summary file"))
+            .expect("summary json");
+    let metric_sum = |name: &str| -> f64 {
+        summary["metrics"]
+            .as_array()
+            .expect("metrics")
+            .iter()
+            .find(|m| m["metric"] == name)
+            .and_then(|m| m["agg"]["sum"].as_f64())
+            .unwrap_or(0.0)
+    };
+    let completed = metric_sum("iterations");
+    let dropped = metric_sum("dropped_iterations");
+    assert!(completed > 0.0, "no iterations completed\nstdout: {stdout}");
+    assert!(
+        dropped > 0.0,
+        "saturated pool dropped nothing\nstdout: {stdout}"
+    );
+    // Conservation at 20ms tick: ceil(200*0.02)+1 = 5. The deadline flush
+    // publishes the final partial interval, so no extra tail slack is needed.
+    let scheduled = 200.0 * 2.0;
+    assert!(
+        ((completed + dropped) - scheduled).abs() <= 5.0,
+        "conservation violated: completed={completed} dropped={dropped}\nstdout: {stdout}"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn threshold_failure_exits_99() {
     let server = loadr_testserver::HttpTestServer::spawn()

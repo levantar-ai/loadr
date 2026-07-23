@@ -103,7 +103,7 @@
     const lines = ['category,cause,count,share_pct'];
     if (f) {
       const groups = [
-        ['http_status', f.by_status],
+        ['status', f.by_status],
         ['transport_error', f.by_error_kind],
         ['failed_check', f.by_check],
         ['script_exception', f.by_exception],
@@ -168,7 +168,7 @@
       ' total failures · generated ' +
       esc(new Date().toLocaleString()) +
       '</p>' +
-      section('HTTP status (4xx / 5xx)', f && f.by_status) +
+      section('Status codes', f && f.by_status) +
       section('Transport / error kind', f && f.by_error_kind) +
       section('Failed checks', f && f.by_check) +
       section('Script exceptions', f && f.by_exception) +
@@ -373,14 +373,17 @@
     const failSummary = h('span', { class: 'mono muted' }, 'no failures yet');
     const failGroupCard = (key, title) =>
       h('div', { class: 'fail-group' }, h('h4', null, title), failGroups[key]);
+    // Start disabled: there is nothing to export until a snapshot reports
+    // failures, and an enabled button that silently no-ops reads as broken.
+    const noFailuresTip = 'No failures recorded yet — enabled once the run reports failures';
     const dlCsvBtn = h(
       'button',
-      { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Download breakdown as CSV' },
+      { class: 'btn btn-ghost btn-sm', type: 'button', disabled: true, title: noFailuresTip },
       '↓ CSV'
     );
     const dlHtmlBtn = h(
       'button',
-      { class: 'btn btn-ghost btn-sm', type: 'button', title: 'Download breakdown as an HTML report' },
+      { class: 'btn btn-ghost btn-sm', type: 'button', disabled: true, title: noFailuresTip },
       '↓ Report'
     );
     dlCsvBtn.addEventListener('click', () => downloadFailuresCsv(lastFailures));
@@ -397,7 +400,7 @@
       h(
         'div',
         { class: 'fail-grid' },
-        failGroupCard('by_status', 'HTTP status'),
+        failGroupCard('by_status', 'Status codes'),
         failGroupCard('by_error_kind', 'Transport / error'),
         failGroupCard('by_check', 'Failed checks'),
         failGroupCard('by_exception', 'Script exceptions')
@@ -554,7 +557,12 @@
       );
 
       dataRates.textContent =
-        '↑ ' + fmt.bytes(m.data_sent_ps) + '/s    ↓ ' + fmt.bytes(m.data_received_ps) + '/s    total reqs ' + fmt.num(m.http_reqs_total, 0);
+        '↑ ' +
+        fmt.bytes(m.data_sent_ps) +
+        '/s    ↓ ' +
+        fmt.bytes(m.data_received_ps) +
+        '/s    total reqs ' +
+        fmt.num(m.reqs_total != null ? m.reqs_total : m.http_reqs_total, 0);
 
       updateFailures(m.failures);
     }
@@ -580,6 +588,8 @@
       }
       dlCsvBtn.disabled = total === 0;
       dlHtmlBtn.disabled = total === 0;
+      dlCsvBtn.title = total === 0 ? noFailuresTip : 'Download breakdown as CSV';
+      dlHtmlBtn.title = total === 0 ? noFailuresTip : 'Download breakdown as an HTML report';
 
       const renderGroup = (key) => {
         const rows = (f && f[key]) || [];
@@ -880,9 +890,9 @@
           'div',
           { class: 'stat-grid' },
           statCard('Duration', fmt.duration(summary.duration_secs)),
-          statCard('Requests', fmt.num(sumMetric(summary, 'http_reqs'), 0)),
-          statCard('Avg RPS', fmt.num(perSecMetric(summary, 'http_reqs'), 1)),
-          statCard('p95 latency', fmt.ms(aggOf(summary, 'http_req_duration', 'p95')))
+          statCard('Requests', fmt.num(sumReqMetrics(summary), 0)),
+          statCard('Avg RPS', fmt.num(perSecReqMetrics(summary), 1)),
+          statCard('p95 latency', fmt.ms(weightedReqDuration(summary, 'p95')))
         );
 
         const metricsTable = h(
@@ -976,20 +986,31 @@
           h('div', { class: 'stat-value mono' }, value)
         );
       }
-      function metric(summary, name) {
-        return (summary.metrics || []).find((m) => m.metric === name);
+      // Request metrics are protocol-family specific; summary cards are
+      // protocol-agnostic, matching the live dashboard rollup.
+      function reqMetrics(summary) {
+        return (summary.metrics || []).filter((m) => m.metric.endsWith('_reqs'));
       }
-      function sumMetric(summary, name) {
-        const m = metric(summary, name);
-        return m ? m.agg.sum : null;
+      function reqDurationMetrics(summary) {
+        return (summary.metrics || []).filter((m) => m.metric.endsWith('_req_duration'));
       }
-      function perSecMetric(summary, name) {
-        const m = metric(summary, name);
-        return m ? m.agg.per_second : null;
+      function sumReqMetrics(summary) {
+        return reqMetrics(summary).reduce((sum, m) => sum + ((m.agg && m.agg.sum) || 0), 0);
       }
-      function aggOf(summary, name, field) {
-        const m = metric(summary, name);
-        return m ? m.agg[field] : null;
+      function perSecReqMetrics(summary) {
+        return reqMetrics(summary).reduce((sum, m) => sum + ((m.agg && m.agg.per_second) || 0), 0);
+      }
+      function weightedReqDuration(summary, field) {
+        let total = 0;
+        let acc = 0;
+        for (const m of reqDurationMetrics(summary)) {
+          const a = m.agg || {};
+          const count = a.count || 0;
+          if (!count || a[field] == null) continue;
+          total += count;
+          acc += a[field] * count;
+        }
+        return total ? acc / total : null;
       }
 
       async function load() {

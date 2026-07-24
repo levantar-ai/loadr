@@ -6,7 +6,7 @@
 //! inline script draws SVG line charts with a shared hover crosshair. No
 //! external assets are referenced.
 
-use loadr_core::{MetricKind, Summary, TimelinePoint};
+use loadr_core::{AggValues, MetricKind, SeriesSnapshot, Snapshot, Summary, TimelinePoint};
 
 /// Render a standalone HTML report (no external assets).
 pub fn render(summary: &Summary) -> String {
@@ -105,6 +105,7 @@ pub fn render(summary: &Summary) -> String {
     }
 
     let timeseries = timeseries_section(&summary.timeline);
+    let per_txn = per_transaction_section(&summary.snapshot);
 
     format!(
         r##"<!doctype html>
@@ -112,28 +113,30 @@ pub fn render(summary: &Summary) -> String {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>loadr report — {title}</title>
 <style>
-:root {{ color-scheme: dark; --bg:#0e1117; --panel:#161b24; --border:#262d3a; --fg:#dbe2ee; --muted:#8794a8; --green:#3fb968; --red:#e5534b; --accent:#7aa2f7; }}
-body {{ margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif; }}
+:root {{ color-scheme: dark; --bg:#07070a; --panel:#141419; --card:linear-gradient(160deg,#0c0c11 0%,#0a0a0e 100%); --border:#232330; --fg:#d1d5db; --ink:#f3f4f6; --muted:#9ca3af; --green:#4ade80; --red:#ef4444; --ember:#ef4444; --flare:#f87171; --accent:#ef4444; }}
+body {{ margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; }}
 .wrap {{ max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }}
-h1 {{ font-size: 26px; margin: 0 0 4px; }} h2 {{ font-size: 17px; margin: 36px 0 10px; color: var(--accent); }}
+h1 {{ font-size: 27px; margin: 0 0 6px; color:var(--ink); letter-spacing:-.015em; }} h2 {{ font-size: 13px; margin: 40px 0 12px; color: var(--ink); text-transform:uppercase; letter-spacing:.07em; }}
+h2::before {{ content:""; display:inline-block; width:7px; height:7px; background:var(--ember); border-radius:2px; margin-right:9px; vertical-align:baseline; }}
 .muted {{ color: var(--muted); }}
 .pill {{ display:inline-block; padding:2px 12px; border-radius:999px; font-weight:600; font-size:13px; }}
-.pill.pass {{ background:rgba(63,185,104,.15); color:var(--green); border:1px solid var(--green); }}
-.pill.fail {{ background:rgba(229,83,75,.15); color:var(--red); border:1px solid var(--red); }}
-table {{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; }}
+.pill.pass {{ background:rgba(74,222,128,.13); color:var(--green); border:1px solid rgba(74,222,128,.5); }}
+.pill.fail {{ background:rgba(239,68,68,.13); color:var(--red); border:1px solid rgba(239,68,68,.5); }}
+table {{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }}
 th,td {{ text-align:left; padding:8px 12px; border-bottom:1px solid var(--border); font-variant-numeric: tabular-nums; }}
 th {{ color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }}
 tr:last-child td {{ border-bottom:none; }}
-.ok {{ color:var(--green); }} .bad {{ color:var(--red); }}
-code {{ color:var(--accent); }}
+.ok {{ color:var(--green); }} .bad {{ color:var(--red); }} .warn {{ color:#fbbf24; }}
+tr.tot td {{ font-weight:700; border-top:2px solid var(--border); background:rgba(255,255,255,.02); }}
+code {{ color:var(--flare); font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }}
 .bar {{ display:inline-block; width:120px; height:8px; background:var(--border); border-radius:4px; vertical-align:middle; margin-right:8px; }}
 .bar div {{ height:8px; background:var(--green); border-radius:4px; }}
 .meta {{ display:flex; gap:24px; flex-wrap:wrap; margin:18px 0 0; }}
-.meta div {{ background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 16px; }}
+.meta div {{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px; }}
 .meta b {{ display:block; font-size:20px; }}
 footer {{ margin-top:48px; color:var(--muted); font-size:13px; }}
 .charts {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; }}
-.chart {{ background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px 8px; }}
+.chart {{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px 8px; }}
 .chart h3 {{ margin:0 0 2px; font-size:14px; font-weight:600; color:var(--fg); }}
 .chart .legend {{ display:flex; flex-wrap:wrap; gap:12px; margin:0 0 6px; font-size:12px; color:var(--muted); }}
 .chart .legend span {{ display:inline-flex; align-items:center; gap:5px; }}
@@ -153,7 +156,7 @@ footer {{ margin-top:48px; color:var(--muted); font-size:13px; }}
   <div><b>{run_id}</b><span class="muted">run id</span></div>
 </div>
 {timeseries}
-<h2>Thresholds</h2>
+{per_txn}<h2>Thresholds</h2>
 <table><thead><tr><th></th><th>Metric</th><th>Expression</th><th>Observed</th></tr></thead>
 <tbody>{threshold_rows}</tbody></table>
 <h2>Checks</h2>
@@ -173,6 +176,277 @@ footer {{ margin-top:48px; color:var(--muted); font-size:13px; }}
         run_id = esc(&summary.run_id),
         version = env!("CARGO_PKG_VERSION"),
     )
+}
+
+/// Per-transaction breakdown (one row per request `name`) built from the final
+/// snapshot's per-tag series: statistics, response-time percentiles, APDEX and
+/// the response-code distribution — the JMeter/Locust view. loadr tags every
+/// named request with a `name`, so this renders automatically; it returns an
+/// empty string when no series carry a `name` tag (e.g. unnamed requests or
+/// summaries from before per-tag capture), leaving the rest of the report
+/// unchanged.
+fn per_transaction_section(snapshot: &Snapshot) -> String {
+    let mut names: Vec<&str> = Vec::new();
+    for s in &snapshot.series {
+        if let Some(n) = s.tags.get("name") {
+            if !names.contains(&n.as_str()) {
+                names.push(n.as_str());
+            }
+        }
+    }
+    if names.is_empty() {
+        return String::new();
+    }
+
+    let with = |metric: &str, name: &str| -> Vec<&SeriesSnapshot> {
+        snapshot
+            .series
+            .iter()
+            .filter(|s| {
+                s.metric == metric && s.tags.get("name").map(|n| n == name).unwrap_or(false)
+            })
+            .collect()
+    };
+    let sum_ps = |metric: &str, name: &str| -> f64 {
+        with(metric, name)
+            .iter()
+            .filter_map(|s| s.agg.per_second)
+            .sum()
+    };
+
+    let (mut stat_rows, mut pct_rows, mut apdex_rows, mut code_rows) =
+        (String::new(), String::new(), String::new(), String::new());
+    let (mut tot_samples, mut tot_fails) = (0u64, 0u64);
+
+    for &name in &names {
+        let dur = merge_dur(&with("http_req_duration", name));
+        let samples: u64 = with("http_reqs", name).iter().map(|s| s.agg.count).sum();
+        let fails: u64 = with("http_req_failed", name)
+            .iter()
+            .map(|s| s.agg.sum as u64)
+            .sum();
+        let err = if samples > 0 {
+            100.0 * fails as f64 / samples as f64
+        } else {
+            0.0
+        };
+        let tput = sum_ps("http_reqs", name);
+        let recv = sum_ps("data_received", name) / 1024.0;
+        let sent = sum_ps("data_sent", name) / 1024.0;
+        tot_samples += samples;
+        tot_fails += fails;
+        let ec = if fails == 0 { "ok" } else { "bad" };
+
+        stat_rows.push_str(&format!(
+            "<tr><td>{}</td><td>{samples}</td><td class=\"{ec}\">{fails}</td><td class=\"{ec}\">{err:.2}%</td>{}{}{}{}{}{}{}<td>{tput:.1}/s</td><td>{recv:.1}</td><td>{sent:.1}</td></tr>",
+            esc(name),
+            cms(dur.avg), cms(dur.min), cms(dur.med), cms(dur.max),
+            cms(dur.p90), cms(dur.p95), cms(dur.p99),
+        ));
+        pct_rows.push_str(&format!(
+            "<tr><td>{}</td>{}{}{}{}{}{}</tr>",
+            esc(name),
+            cms(dur.med),
+            cms(dur.p90),
+            cms(dur.p95),
+            cms(dur.p99),
+            cms(dur.p999),
+            cms(dur.max),
+        ));
+        let ap = apdex(&dur, 500.0);
+        let apc = ap
+            .map(|v| {
+                if v >= 0.94 {
+                    "ok"
+                } else if v >= 0.85 {
+                    "warn"
+                } else {
+                    "bad"
+                }
+            })
+            .unwrap_or("muted");
+        apdex_rows.push_str(&format!(
+            "<tr><td>{}</td><td class=\"{apc}\">{}</td><td>{samples}</td></tr>",
+            esc(name),
+            ap.map(|v| format!("{v:.3}")).unwrap_or_else(|| "-".into()),
+        ));
+        for s in with("http_reqs", name) {
+            let method = s.tags.get("method").map(String::as_str).unwrap_or("");
+            let status = s.tags.get("status").map(String::as_str).unwrap_or("?");
+            let sc = if status.starts_with('2') || status.starts_with('3') {
+                "ok"
+            } else {
+                "bad"
+            };
+            code_rows.push_str(&format!(
+                "<tr><td>{}</td><td>{}</td><td class=\"{sc}\">{}</td><td>{}</td></tr>",
+                esc(name),
+                esc(method),
+                esc(status),
+                s.agg.count,
+            ));
+        }
+    }
+
+    // TOTAL rows: merged across every named series.
+    let named = |metric: &str| -> Vec<&SeriesSnapshot> {
+        snapshot
+            .series
+            .iter()
+            .filter(|s| s.metric == metric && s.tags.contains_key("name"))
+            .collect()
+    };
+    let tdur = merge_dur(&named("http_req_duration"));
+    let ttput: f64 = named("http_reqs")
+        .iter()
+        .filter_map(|s| s.agg.per_second)
+        .sum();
+    let trecv: f64 = named("data_received")
+        .iter()
+        .filter_map(|s| s.agg.per_second)
+        .sum::<f64>()
+        / 1024.0;
+    let tsent: f64 = named("data_sent")
+        .iter()
+        .filter_map(|s| s.agg.per_second)
+        .sum::<f64>()
+        / 1024.0;
+    let terr = if tot_samples > 0 {
+        100.0 * tot_fails as f64 / tot_samples as f64
+    } else {
+        0.0
+    };
+    let tec = if tot_fails == 0 { "ok" } else { "bad" };
+    stat_rows.push_str(&format!(
+        "<tr class=\"tot\"><td>TOTAL</td><td>{tot_samples}</td><td class=\"{tec}\">{tot_fails}</td><td class=\"{tec}\">{terr:.2}%</td>{}{}{}{}{}{}{}<td>{ttput:.1}/s</td><td>{trecv:.1}</td><td>{tsent:.1}</td></tr>",
+        cms(tdur.avg), cms(tdur.min), cms(tdur.med), cms(tdur.max),
+        cms(tdur.p90), cms(tdur.p95), cms(tdur.p99),
+    ));
+    pct_rows.push_str(&format!(
+        "<tr class=\"tot\"><td>TOTAL</td>{}{}{}{}{}{}</tr>",
+        cms(tdur.med),
+        cms(tdur.p90),
+        cms(tdur.p95),
+        cms(tdur.p99),
+        cms(tdur.p999),
+        cms(tdur.max),
+    ));
+    let tap = apdex(&tdur, 500.0);
+    apdex_rows.push_str(&format!(
+        "<tr class=\"tot\"><td>TOTAL</td><td>{}</td><td>{tot_samples}</td></tr>",
+        tap.map(|v| format!("{v:.3}")).unwrap_or_else(|| "-".into()),
+    ));
+
+    format!(
+        r#"<h2>Per-transaction statistics <span class="muted">(latency ms)</span></h2>
+<table><thead><tr><th>Transaction</th><th>Samples</th><th>Fails</th><th>Error</th><th>Avg</th><th>Min</th><th>Med</th><th>Max</th><th>p90</th><th>p95</th><th>p99</th><th>Req/s</th><th>Recv KB/s</th><th>Sent KB/s</th></tr></thead>
+<tbody>{stat_rows}</tbody></table>
+<h2>Response-time percentiles <span class="muted">(ms)</span></h2>
+<table><thead><tr><th>Transaction</th><th>p50</th><th>p90</th><th>p95</th><th>p99</th><th>p99.9</th><th>Max</th></tr></thead>
+<tbody>{pct_rows}</tbody></table>
+<h2>APDEX <span class="muted">(T = 500 ms, estimated from percentiles)</span></h2>
+<table><thead><tr><th>Transaction</th><th>APDEX</th><th>Samples</th></tr></thead>
+<tbody>{apdex_rows}</tbody></table>
+<h2>Response codes</h2>
+<table><thead><tr><th>Transaction</th><th>Method</th><th>Status</th><th>Count</th></tr></thead>
+<tbody>{code_rows}</tbody></table>
+"#
+    )
+}
+
+/// Count-weighted merge of a duration/TTFB trend across a request's series (one
+/// per status/method). Exact when a request returns a single status; otherwise
+/// a count-weighted approximation — the same approach the timeline uses, since
+/// summaries carry no histogram buckets to merge exactly.
+fn merge_dur(series: &[&SeriesSnapshot]) -> AggValues {
+    let mut out = AggValues::default();
+    let w = |pick: fn(&AggValues) -> Option<f64>| -> Option<f64> {
+        let (mut acc, mut n) = (0.0_f64, 0_u64);
+        for s in series {
+            if s.agg.count == 0 {
+                continue;
+            }
+            if let Some(v) = pick(&s.agg) {
+                acc += v * s.agg.count as f64;
+                n += s.agg.count;
+            }
+        }
+        (n > 0).then_some(acc / n as f64)
+    };
+    for s in series {
+        out.count += s.agg.count;
+        out.sum += s.agg.sum;
+    }
+    out.avg = w(|a| a.avg);
+    out.med = w(|a| a.med);
+    out.p90 = w(|a| a.p90);
+    out.p95 = w(|a| a.p95);
+    out.p99 = w(|a| a.p99);
+    out.p999 = w(|a| a.p999);
+    out.min = series
+        .iter()
+        .filter_map(|s| s.agg.min)
+        .fold(None, |m, v| Some(m.map_or(v, |x: f64| x.min(v))));
+    out.max = series
+        .iter()
+        .filter_map(|s| s.agg.max)
+        .fold(None, |m, v| Some(m.map_or(v, |x: f64| x.max(v))));
+    out
+}
+
+/// Estimate P(latency ≤ x) by piecewise-linear interpolation over the known
+/// percentile knots (loadr summaries carry no histogram buckets).
+fn interp_cdf(a: &AggValues, x: f64) -> Option<f64> {
+    let mut pts: Vec<(f64, f64)> = [
+        (a.min, 0.0),
+        (a.med, 0.5),
+        (a.p90, 0.9),
+        (a.p95, 0.95),
+        (a.p99, 0.99),
+        (a.p999, 0.999),
+        (a.max, 1.0),
+    ]
+    .into_iter()
+    .filter_map(|(v, q)| v.map(|v| (v, q)))
+    .collect();
+    if pts.is_empty() {
+        return None;
+    }
+    pts.sort_by(|p, q| p.0.partial_cmp(&q.0).unwrap_or(std::cmp::Ordering::Equal));
+    if x <= pts[0].0 {
+        return Some(if x < pts[0].0 { 0.0 } else { pts[0].1 });
+    }
+    if x >= pts[pts.len() - 1].0 {
+        return Some(1.0);
+    }
+    for w in pts.windows(2) {
+        let ((v0, q0), (v1, q1)) = (w[0], w[1]);
+        if v0 <= x && x <= v1 {
+            return Some(if v1 == v0 {
+                q1
+            } else {
+                q0 + (q1 - q0) * (x - v0) / (v1 - v0)
+            });
+        }
+    }
+    Some(1.0)
+}
+
+/// APDEX ≈ (CDF(T) + CDF(4T)) / 2 = satisfied + tolerating/2, all over total.
+fn apdex(a: &AggValues, t_ms: f64) -> Option<f64> {
+    let s = interp_cdf(a, t_ms)?;
+    let tol = interp_cdf(a, 4.0 * t_ms)?;
+    Some(((s + tol) / 2.0).clamp(0.0, 1.0))
+}
+
+/// One millisecond table cell: sub-10ms at 3dp, else 1dp, seconds past 1000ms.
+fn cms(v: Option<f64>) -> String {
+    match v {
+        None => "<td>-</td>".to_string(),
+        Some(x) if x >= 1000.0 => format!("<td>{:.2}s</td>", x / 1000.0),
+        Some(x) if x >= 10.0 => format!("<td>{x:.1}</td>"),
+        Some(x) => format!("<td>{x:.3}</td>"),
+    }
 }
 
 /// The time-series charts section. Returns an empty string when there is no
@@ -215,7 +489,7 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
     // readable. The ember-led palette is shared with the JS so legend swatches
     // match the lines.
     const EXT_PAL: [&str; 6] = [
-        "#ff5a36", "#36b3ff", "#f0a35e", "#7dcfff", "#b48ead", "#8fbf6f",
+        "#ef4444", "#4ade80", "#f87171", "#fb923c", "#9ca3af", "#d1d5db",
     ];
     let mut ext_names: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
     for p in timeline {
@@ -275,19 +549,19 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
         r##"<h2>Over time</h2>
 <div class="charts" id="ts-charts">
   <div class="chart"><h3>Throughput</h3>
-    <div class="legend"><span><i style="background:#7aa2f7"></i>requests/s</span><span><i style="background:#bb9af7"></i>iterations/s</span></div>
+    <div class="legend"><span><i style="background:#ef4444"></i>requests/s</span><span><i style="background:#f87171"></i>iterations/s</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="throughput"></svg>
     <div class="tip" data-tip="throughput"></div></div>
   <div class="chart"><h3>Response time (ms)</h3>
-    <div class="legend"><span><i style="background:#3fb968"></i>p50</span><span><i style="background:#e0af68"></i>p95</span><span><i style="background:#e5534b"></i>p99</span><span><i style="background:#8794a8"></i>avg</span></div>
+    <div class="legend"><span><i style="background:#4ade80"></i>p50</span><span><i style="background:#fbbf24"></i>p95</span><span><i style="background:#ef4444"></i>p99</span><span><i style="background:#9ca3af"></i>avg</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="latency"></svg>
     <div class="tip" data-tip="latency"></div></div>
   <div class="chart"><h3>Active VUs</h3>
-    <div class="legend"><span><i style="background:#7dcfff"></i>virtual users</span></div>
+    <div class="legend"><span><i style="background:#fb923c"></i>virtual users</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="vus"></svg>
     <div class="tip" data-tip="vus"></div></div>
   <div class="chart"><h3>Error rate (%)</h3>
-    <div class="legend"><span><i style="background:#e5534b"></i>failed %</span></div>
+    <div class="legend"><span><i style="background:#ef4444"></i>failed %</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="error"></svg>
     <div class="tip" data-tip="error"></div></div>
 </div>
@@ -335,7 +609,7 @@ const CHART_JS: &str = r##"
   var tmin=t[0], tmax=t[t.length-1]||1; if(tmax<=tmin)tmax=tmin+1;
   function px(x){return PL+(x-tmin)/(tmax-tmin)*(W-PL-PR);}
   function nice(m){if(m<=0)return 1;var p=Math.pow(10,Math.floor(Math.log10(m)));var f=m/p;var n=f<=1?1:f<=2?2:f<=5?5:10;return n*p;}
-  var palette={rps:"#7aa2f7",iters:"#bb9af7",p50:"#3fb968",p95:"#e0af68",p99:"#e5534b",avg:"#8794a8",vus:"#7dcfff",err:"#e5534b"};
+  var palette={rps:"#ef4444",iters:"#f87171",p50:"#4ade80",p95:"#fbbf24",p99:"#ef4444",avg:"#9ca3af",vus:"#fb923c",err:"#ef4444"};
   var charts={
     throughput:{svg:null,keys:["rps","iters"],max:0},
     latency:{svg:null,keys:["p50","p95","p99","avg"],max:0},
@@ -345,7 +619,7 @@ const CHART_JS: &str = r##"
   // observe: register a "System metrics" chart from any ext_* series. The
   // ember-led palette matches the legend swatches emitted server-side.
   if(d.__ext&&d.__ext.length){
-    var extPal=["#ff5a36","#36b3ff","#f0a35e","#7dcfff","#b48ead","#8fbf6f"];
+    var extPal=["#ef4444","#4ade80","#f87171","#fb923c","#9ca3af","#d1d5db"];
     d.__ext.forEach(function(k,idx){
       if(!palette[k])palette[k]=extPal[idx%extPal.length];
       charts[k]={svg:null,keys:[k],max:0}; // one small-multiple panel per metric
@@ -493,6 +767,65 @@ mod tests {
         assert!(html.contains("PASSED"));
         assert!(!html.contains("Over time"));
         assert!(!html.contains(r#"id="ts-data""#));
+        // No name-tagged series -> no per-transaction section.
+        assert!(!html.contains("Per-transaction statistics"));
+    }
+
+    #[test]
+    fn renders_per_transaction_breakdown() {
+        // A summary whose snapshot carries per-tag series (name/method/status) —
+        // loadr adds a `name` tag to every named request — must produce the
+        // JMeter/Locust per-transaction tables, percentiles, APDEX and codes.
+        let series = |metric: &str,
+                      name: &str,
+                      method: &str,
+                      status: &str,
+                      count: u64,
+                      p99: f64| {
+            let kind = match metric {
+                "http_reqs" => "counter",
+                "http_req_failed" => "rate",
+                _ => "trend",
+            };
+            serde_json::json!({
+                "metric": metric, "kind": kind,
+                "tags": {"name": name, "method": method, "status": status, "proto": "http", "scenario": "s"},
+                "agg": {"count": count, "sum": if metric == "http_req_failed" {0.0} else {count as f64},
+                        "avg": 2.0, "min": 1.0, "max": p99 + 1.0, "med": 1.5,
+                        "p90": p99 * 0.8, "p95": p99 * 0.9, "p99": p99, "p999": p99 + 0.5,
+                        "rate": serde_json::Value::Null, "last": serde_json::Value::Null,
+                        "per_second": count as f64},
+                "interval_count": count, "interval_sum": count as f64
+            })
+        };
+        let json = serde_json::json!({
+            "name": "j", "run_id": "r-3", "started_ms": 0u64, "ended_ms": 1000u64,
+            "duration_secs": 1.0, "scenarios": ["s"], "metrics": [], "checks": [],
+            "thresholds": [], "thresholds_passed": true, "aborted": null,
+            "snapshot": {"timestamp_ms": 0u64, "elapsed_secs": 1.0, "interval_secs": 1.0, "series": [
+                series("http_req_duration", "create", "POST", "201", 100, 15.0),
+                series("http_reqs",         "create", "POST", "201", 100, 0.0),
+                series("http_req_failed",   "create", "POST", "201", 100, 0.0),
+                series("http_req_duration", "read",   "GET",  "200", 100, 8.0),
+                series("http_reqs",         "read",   "GET",  "200", 100, 0.0),
+                series("http_req_failed",   "read",   "GET",  "200", 100, 0.0),
+            ]}
+        });
+        let summary: Summary = serde_json::from_value(json).expect("summary");
+        let html = render(&summary);
+        // Section headers.
+        assert!(html.contains("Per-transaction statistics"));
+        assert!(html.contains("Response-time percentiles"));
+        assert!(html.contains("APDEX"));
+        assert!(html.contains("Response codes"));
+        // Both transactions listed, with a TOTAL row.
+        assert!(html.contains(">create</td>"));
+        assert!(html.contains(">read</td>"));
+        assert!(html.contains(r#"<tr class="tot"><td>TOTAL</td>"#));
+        // Response codes broken out per method/status.
+        assert!(html.contains(">POST</td>"));
+        assert!(html.contains(">201</td>"));
+        assert!(html.contains(">200</td>"));
     }
 
     #[test]

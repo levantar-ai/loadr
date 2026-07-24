@@ -2,7 +2,7 @@
 name = "loadr-gen"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 description = "Generate a loadr scenario from an API contract (OpenAPI, and more) with schema-derived example data"
 

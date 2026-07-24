@@ -3,7 +3,7 @@ name = "loadr-plugin-kafka"
 description = "Native protocol plugin: adds Apache Kafka (kafka://) as a loadr load-test target"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

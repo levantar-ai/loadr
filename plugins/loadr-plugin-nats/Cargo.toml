@@ -3,7 +3,7 @@ name = "loadr-plugin-nats"
 description = "Native protocol plugin: adds NATS (nats://) as a loadr load-test target"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

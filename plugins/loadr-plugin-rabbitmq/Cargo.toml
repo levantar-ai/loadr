@@ -3,7 +3,7 @@ name = "loadr-plugin-rabbitmq"
 description = "Native protocol plugin: adds RabbitMQ (amqp://) as a loadr load-test target"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

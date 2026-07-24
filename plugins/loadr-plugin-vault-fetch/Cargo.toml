@@ -3,7 +3,7 @@ name = "loadr-plugin-vault-fetch"
 description = "Native service plugin: fetches KV secrets from HashiCorp Vault at run start and serves them to VUs"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

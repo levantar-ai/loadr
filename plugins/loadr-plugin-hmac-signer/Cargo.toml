@@ -3,7 +3,7 @@ name = "loadr-plugin-hmac-signer"
 description = "Native service plugin: a pure-Rust HMAC (SHA-256/512) request signer served over a local endpoint"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

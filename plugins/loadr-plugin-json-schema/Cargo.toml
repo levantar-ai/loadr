@@ -3,7 +3,7 @@
 name = "loadr-plugin-json-schema"
 version = "0.1.0"
 edition = "2021"
-license-file = "../../LICENSE"
+license = "MIT"
 publish = false
 
 [lib]

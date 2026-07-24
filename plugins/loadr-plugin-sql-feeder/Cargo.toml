@@ -3,7 +3,7 @@ name = "loadr-plugin-sql-feeder"
 description = "Native service plugin: runs a SELECT once at startup and exposes the rows as a JSON feeder for the run"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

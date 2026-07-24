@@ -3,7 +3,7 @@ name = "loadr-plugin-faker-gen"
 description = "Native service plugin: a seeded, pure-Rust fake-data generator that materialises CSV rows for feeders"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

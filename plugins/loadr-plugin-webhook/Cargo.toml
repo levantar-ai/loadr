@@ -3,7 +3,7 @@ name = "loadr-plugin-webhook"
 description = "Native output plugin: POSTs each snapshot and the summary as JSON to a configured HTTP endpoint"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

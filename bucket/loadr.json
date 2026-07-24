@@ -2,7 +2,7 @@
   "version": "1.29.0",
   "description": "Modern load-testing tool: declarative YAML, embedded JS, many protocols",
   "homepage": "https://loadr.io",
-  "license": "Elastic-2.0",
+  "license": "MIT",
   "architecture": {
     "64bit": {
       "url": "https://github.com/levantar-ai/loadr/releases/download/v1.29.0/loadr-x86_64-pc-windows-msvc.zip",

@@ -3,7 +3,7 @@ name = "loadr-plugin-s3-dataset"
 description = "Native service plugin: fetches an S3 object (SigV4) over HTTPS and parses CSV/JSONL into loadr feeder rows"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

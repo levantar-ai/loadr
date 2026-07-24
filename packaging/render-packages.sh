@@ -29,7 +29,7 @@ class Loadr < Formula
   desc "Modern load-testing tool: declarative YAML, embedded JS, many protocols"
   homepage "https://loadr.io"
   version "$VER"
-  license "Elastic-2.0"
+  license "MIT"
 
   on_macos do
     on_arm do
@@ -68,7 +68,7 @@ cat > "$ROOT/bucket/loadr.json" <<JSON
   "version": "$VER",
   "description": "Modern load-testing tool: declarative YAML, embedded JS, many protocols",
   "homepage": "https://loadr.io",
-  "license": "Elastic-2.0",
+  "license": "MIT",
   "architecture": {
     "64bit": {
       "url": "$BASE/loadr-x86_64-pc-windows-msvc.zip",

@@ -3,7 +3,7 @@ name = "loadr-plugin-k8s-metrics"
 description = "Native service plugin: polls the Kubernetes metrics API for pod CPU/memory and emits system-metric samples"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

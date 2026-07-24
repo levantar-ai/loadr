@@ -3,7 +3,7 @@ name = "loadr-plugin-elasticsearch"
 description = "Native protocol plugin: adds Elasticsearch (elasticsearch://) as a loadr load-test target"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

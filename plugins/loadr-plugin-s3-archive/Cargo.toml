@@ -3,7 +3,7 @@ name = "loadr-plugin-s3-archive"
 description = "Native output plugin: buffers the run report and uploads it gzip-compressed to S3 with a hand-rolled SigV4 PUT"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

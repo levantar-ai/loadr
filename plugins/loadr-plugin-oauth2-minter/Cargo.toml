@@ -3,7 +3,7 @@ name = "loadr-plugin-oauth2-minter"
 description = "Native service plugin: mints, caches and auto-refreshes an OAuth2 bearer token shared by every VU"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

@@ -3,7 +3,7 @@ name = "loadr-plugin-cloudwatch"
 description = "Native output plugin: batches loadr snapshot series into AWS CloudWatch PutMetricData over SigV4-signed HTTPS"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

@@ -113,29 +113,30 @@ pub fn render(summary: &Summary) -> String {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>loadr report — {title}</title>
 <style>
-:root {{ color-scheme: dark; --bg:#0e1117; --panel:#161b24; --border:#262d3a; --fg:#dbe2ee; --muted:#8794a8; --green:#3fb968; --red:#e5534b; --accent:#7aa2f7; }}
-body {{ margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif; }}
+:root {{ color-scheme: dark; --bg:#07070a; --panel:#141419; --card:linear-gradient(160deg,#0c0c11 0%,#0a0a0e 100%); --border:#232330; --fg:#d1d5db; --ink:#f3f4f6; --muted:#9ca3af; --green:#4ade80; --red:#ef4444; --ember:#ef4444; --flare:#f87171; --accent:#ef4444; }}
+body {{ margin:0; background:var(--bg); color:var(--fg); font:15px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif; }}
 .wrap {{ max-width: 1080px; margin: 0 auto; padding: 32px 20px 64px; }}
-h1 {{ font-size: 26px; margin: 0 0 4px; }} h2 {{ font-size: 17px; margin: 36px 0 10px; color: var(--accent); }}
+h1 {{ font-size: 27px; margin: 0 0 6px; color:var(--ink); letter-spacing:-.015em; }} h2 {{ font-size: 13px; margin: 40px 0 12px; color: var(--ink); text-transform:uppercase; letter-spacing:.07em; }}
+h2::before {{ content:""; display:inline-block; width:7px; height:7px; background:var(--ember); border-radius:2px; margin-right:9px; vertical-align:baseline; }}
 .muted {{ color: var(--muted); }}
 .pill {{ display:inline-block; padding:2px 12px; border-radius:999px; font-weight:600; font-size:13px; }}
-.pill.pass {{ background:rgba(63,185,104,.15); color:var(--green); border:1px solid var(--green); }}
-.pill.fail {{ background:rgba(229,83,75,.15); color:var(--red); border:1px solid var(--red); }}
-table {{ width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; }}
+.pill.pass {{ background:rgba(74,222,128,.13); color:var(--green); border:1px solid rgba(74,222,128,.5); }}
+.pill.fail {{ background:rgba(239,68,68,.13); color:var(--red); border:1px solid rgba(239,68,68,.5); }}
+table {{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }}
 th,td {{ text-align:left; padding:8px 12px; border-bottom:1px solid var(--border); font-variant-numeric: tabular-nums; }}
 th {{ color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em; }}
 tr:last-child td {{ border-bottom:none; }}
-.ok {{ color:var(--green); }} .bad {{ color:var(--red); }} .warn {{ color:#e0af68; }}
+.ok {{ color:var(--green); }} .bad {{ color:var(--red); }} .warn {{ color:#fbbf24; }}
 tr.tot td {{ font-weight:700; border-top:2px solid var(--border); background:rgba(255,255,255,.02); }}
-code {{ color:var(--accent); }}
+code {{ color:var(--flare); font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace; }}
 .bar {{ display:inline-block; width:120px; height:8px; background:var(--border); border-radius:4px; vertical-align:middle; margin-right:8px; }}
 .bar div {{ height:8px; background:var(--green); border-radius:4px; }}
 .meta {{ display:flex; gap:24px; flex-wrap:wrap; margin:18px 0 0; }}
-.meta div {{ background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:10px 16px; }}
+.meta div {{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 16px; }}
 .meta b {{ display:block; font-size:20px; }}
 footer {{ margin-top:48px; color:var(--muted); font-size:13px; }}
 .charts {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px; }}
-.chart {{ background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:14px 16px 8px; }}
+.chart {{ background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 16px 8px; }}
 .chart h3 {{ margin:0 0 2px; font-size:14px; font-weight:600; color:var(--fg); }}
 .chart .legend {{ display:flex; flex-wrap:wrap; gap:12px; margin:0 0 6px; font-size:12px; color:var(--muted); }}
 .chart .legend span {{ display:inline-flex; align-items:center; gap:5px; }}
@@ -488,7 +489,7 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
     // readable. The ember-led palette is shared with the JS so legend swatches
     // match the lines.
     const EXT_PAL: [&str; 6] = [
-        "#ff5a36", "#36b3ff", "#f0a35e", "#7dcfff", "#b48ead", "#8fbf6f",
+        "#ef4444", "#4ade80", "#f87171", "#fb923c", "#9ca3af", "#d1d5db",
     ];
     let mut ext_names: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
     for p in timeline {
@@ -548,19 +549,19 @@ fn timeseries_section(timeline: &[TimelinePoint]) -> String {
         r##"<h2>Over time</h2>
 <div class="charts" id="ts-charts">
   <div class="chart"><h3>Throughput</h3>
-    <div class="legend"><span><i style="background:#7aa2f7"></i>requests/s</span><span><i style="background:#bb9af7"></i>iterations/s</span></div>
+    <div class="legend"><span><i style="background:#ef4444"></i>requests/s</span><span><i style="background:#f87171"></i>iterations/s</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="throughput"></svg>
     <div class="tip" data-tip="throughput"></div></div>
   <div class="chart"><h3>Response time (ms)</h3>
-    <div class="legend"><span><i style="background:#3fb968"></i>p50</span><span><i style="background:#e0af68"></i>p95</span><span><i style="background:#e5534b"></i>p99</span><span><i style="background:#8794a8"></i>avg</span></div>
+    <div class="legend"><span><i style="background:#4ade80"></i>p50</span><span><i style="background:#fbbf24"></i>p95</span><span><i style="background:#ef4444"></i>p99</span><span><i style="background:#9ca3af"></i>avg</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="latency"></svg>
     <div class="tip" data-tip="latency"></div></div>
   <div class="chart"><h3>Active VUs</h3>
-    <div class="legend"><span><i style="background:#7dcfff"></i>virtual users</span></div>
+    <div class="legend"><span><i style="background:#fb923c"></i>virtual users</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="vus"></svg>
     <div class="tip" data-tip="vus"></div></div>
   <div class="chart"><h3>Error rate (%)</h3>
-    <div class="legend"><span><i style="background:#e5534b"></i>failed %</span></div>
+    <div class="legend"><span><i style="background:#ef4444"></i>failed %</span></div>
     <svg viewBox="0 0 640 220" preserveAspectRatio="none" data-chart="error"></svg>
     <div class="tip" data-tip="error"></div></div>
 </div>
@@ -608,7 +609,7 @@ const CHART_JS: &str = r##"
   var tmin=t[0], tmax=t[t.length-1]||1; if(tmax<=tmin)tmax=tmin+1;
   function px(x){return PL+(x-tmin)/(tmax-tmin)*(W-PL-PR);}
   function nice(m){if(m<=0)return 1;var p=Math.pow(10,Math.floor(Math.log10(m)));var f=m/p;var n=f<=1?1:f<=2?2:f<=5?5:10;return n*p;}
-  var palette={rps:"#7aa2f7",iters:"#bb9af7",p50:"#3fb968",p95:"#e0af68",p99:"#e5534b",avg:"#8794a8",vus:"#7dcfff",err:"#e5534b"};
+  var palette={rps:"#ef4444",iters:"#f87171",p50:"#4ade80",p95:"#fbbf24",p99:"#ef4444",avg:"#9ca3af",vus:"#fb923c",err:"#ef4444"};
   var charts={
     throughput:{svg:null,keys:["rps","iters"],max:0},
     latency:{svg:null,keys:["p50","p95","p99","avg"],max:0},
@@ -618,7 +619,7 @@ const CHART_JS: &str = r##"
   // observe: register a "System metrics" chart from any ext_* series. The
   // ember-led palette matches the legend swatches emitted server-side.
   if(d.__ext&&d.__ext.length){
-    var extPal=["#ff5a36","#36b3ff","#f0a35e","#7dcfff","#b48ead","#8fbf6f"];
+    var extPal=["#ef4444","#4ade80","#f87171","#fb923c","#9ca3af","#d1d5db"];
     d.__ext.forEach(function(k,idx){
       if(!palette[k])palette[k]=extPal[idx%extPal.length];
       charts[k]={svg:null,keys:[k],max:0}; // one small-multiple panel per metric

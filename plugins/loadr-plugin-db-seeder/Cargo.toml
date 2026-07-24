@@ -3,7 +3,7 @@ name = "loadr-plugin-db-seeder"
 description = "Native service plugin: runs setup SQL before a run and teardown SQL after, for a known fixture state per run"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

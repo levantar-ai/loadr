@@ -3,7 +3,7 @@ name = "loadr-plugin-postgres"
 description = "Native protocol plugin: adds PostgreSQL (postgres://) as a loadr load-test target"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

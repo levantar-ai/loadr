@@ -3,7 +3,7 @@ name = "loadr-plugin-otlp-metrics"
 description = "Native output plugin: exports loadr snapshot series as OTLP metrics over OTLP/HTTP (protobuf or JSON) to an OpenTelemetry collector"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

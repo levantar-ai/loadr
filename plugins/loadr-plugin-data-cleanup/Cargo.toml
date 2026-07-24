@@ -3,7 +3,7 @@ name = "loadr-plugin-data-cleanup"
 description = "Native service plugin: tracks the resources a run creates and deletes them at run end (HTTP DELETE or SQL DELETE)"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

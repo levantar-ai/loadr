@@ -4,7 +4,7 @@ class Loadr < Formula
   desc "Modern load-testing tool: declarative YAML, embedded JS, many protocols"
   homepage "https://loadr.io"
   version "1.29.0"
-  license "Elastic-2.0"
+  license "MIT"
 
   on_macos do
     on_arm do

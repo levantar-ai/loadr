@@ -2,7 +2,7 @@
 name = "loadr-history"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 description = "Durable run-history store + statistical regression detection for loadr"
 

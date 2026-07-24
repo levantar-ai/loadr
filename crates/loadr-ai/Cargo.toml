@@ -2,7 +2,7 @@
 name = "loadr-ai"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 description = "AI copilot for loadr: natural-language → validated scenario, provider-agnostic"
 

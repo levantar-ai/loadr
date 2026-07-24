@@ -54,7 +54,7 @@ members = [
 [workspace.package]
 version = "1.0.0"
 edition = "2021"
-license-file = "LICENSE"
+license = "MIT"
 repository = "https://loadr.io"
 homepage = "https://loadr.io"
 rust-version = "1.85"

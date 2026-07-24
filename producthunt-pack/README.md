@@ -35,7 +35,7 @@ plugins, a live web UI, distributed runs, and mathematically exact percentiles.
 
 **Topics**
 ```
-Developer Tools · GitHub · Open Source (source-available, Elastic-2.0) · Tech
+Developer Tools · GitHub · Open Source (MIT) · Tech
 ```
 
 **Links**
@@ -106,7 +106,7 @@ of it working. So we kept building on it. Today loadr is:
 🔭 observe: pull your server's Prometheus metrics after a run and overlay them on
    the request timeline — so "p95 spiked" lines up with "the DB hit 90% CPU"
 
-Honest notes: it's source-available under Elastic-2.0 (not OSI open source), and
+Honest notes: it's MIT licensed (OSI-approved open source), and
 it's still beta — HTTP/gRPC are solid, the browser-driven path is newer.
 
 The thing we found most interesting wasn't "AI wrote it" — it's how far one

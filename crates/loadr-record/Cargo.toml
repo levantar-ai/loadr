@@ -2,7 +2,7 @@
 name = "loadr-record"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 description = "Session recorder: a capturing HTTP(S) proxy that turns live traffic into an auto-correlated loadr scenario"
 

@@ -3,7 +3,7 @@ name = "loadr-plugin-redis-loader"
 description = "Native service plugin: a distributed shared data feeder backed by a Redis list or stream"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

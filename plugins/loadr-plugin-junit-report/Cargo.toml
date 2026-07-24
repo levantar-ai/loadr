@@ -3,7 +3,7 @@ name = "loadr-plugin-junit-report"
 description = "Native output plugin: maps checks and thresholds to JUnit testcases and writes junit.xml"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

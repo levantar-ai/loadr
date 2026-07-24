@@ -3,7 +3,7 @@ name = "loadr-plugin-datadog"
 description = "Native output plugin: batches loadr snapshot series into the Datadog v2 series HTTP API"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

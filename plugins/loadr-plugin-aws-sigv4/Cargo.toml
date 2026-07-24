@@ -3,7 +3,7 @@ name = "loadr-plugin-aws-sigv4"
 description = "Native service plugin: a pure-Rust AWS Signature Version 4 request signer (canonical request + Authorization header)"
 version.workspace = true
 edition.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 publish = false
 

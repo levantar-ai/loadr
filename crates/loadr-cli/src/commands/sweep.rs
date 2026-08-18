@@ -93,6 +93,30 @@ pub fn execute(args: SweepArgs) -> anyhow::Result<i32> {
         axes.join(" × ")
     );
 
+    // Warn about axes that won't actually change anything. `vus`/`duration` are
+    // applied as `loadr run` load overrides; every other var is only exported as
+    // `LOADR_SWEEP_<NAME>`, so it changes the run only if the plan references it
+    // via `${env.LOADR_SWEEP_<NAME>}`. A var that is neither would silently
+    // produce identical combos — a footgun worth flagging.
+    if let Ok(plan_text) = std::fs::read_to_string(&args.plan) {
+        let names: Vec<&str> = args.vars.iter().map(|v| v.name.as_str()).collect();
+        let inert = inert_vars(&plan_text, &names);
+        if !inert.is_empty() {
+            eprintln!(
+                "{} swept var(s) {} are not referenced by the plan and are not \
+                 `vus`/`duration` overrides — every combo will run identically. \
+                 Reference them as {} in the plan.",
+                "warning:".yellow().bold(),
+                inert.join(", "),
+                inert
+                    .iter()
+                    .map(|n| format!("${{env.{}}}", sweep_env_name(n)))
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            );
+        }
+    }
+
     let mut runner = SubprocessRunner {
         plan: args.plan,
         duration: args.duration,
@@ -370,6 +394,19 @@ fn sweep_env_name(var: &str) -> String {
     format!("LOADR_SWEEP_{}", var.to_ascii_uppercase())
 }
 
+/// Swept vars that will have no effect: not a `vus`/`duration` load override and
+/// not referenced by the plan via `${env.LOADR_SWEEP_<NAME>}`. Such a var would
+/// silently produce identical combos across its whole axis.
+fn inert_vars<'a>(plan_text: &str, names: &[&'a str]) -> Vec<&'a str> {
+    names
+        .iter()
+        .copied()
+        .filter(|name| {
+            !matches!(*name, "vus" | "duration") && !plan_text.contains(&sweep_env_name(name))
+        })
+        .collect()
+}
+
 /// Run every combination sequentially, streaming a one-line status per combo.
 /// A failing combo never aborts the sweep — it lands in the matrix as `-`.
 pub(crate) fn run_sweep(
@@ -622,6 +659,20 @@ mod tests {
             .unwrap_err()
             .contains("bad variable name"));
         assert!(parse_var("vus=10,,50").unwrap_err().contains("empty value"));
+    }
+
+    #[test]
+    fn inert_vars_flags_unreferenced_non_override_axes() {
+        // `rate` is neither a load override nor referenced -> inert.
+        let plan = "scenarios:\n  s:\n    executor: constant-arrival-rate\n    rate: 30\n";
+        assert_eq!(inert_vars(plan, &["rate"]), vec!["rate"]);
+        // `vus`/`duration` are applied as overrides -> never inert.
+        assert!(inert_vars(plan, &["vus", "duration"]).is_empty());
+        // A var the plan references via its env token is effective.
+        let wired = "scenarios:\n  s:\n    rate: ${env.LOADR_SWEEP_RATE}\n";
+        assert!(inert_vars(wired, &["rate"]).is_empty());
+        // Mixed: only the unreferenced one is flagged.
+        assert_eq!(inert_vars(wired, &["rate", "think"]), vec!["think"]);
     }
 
     #[test]
